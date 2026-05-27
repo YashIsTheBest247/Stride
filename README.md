@@ -180,6 +180,20 @@ code block) is provider-agnostic. Update `requirements.txt` and `.env` to match.
 
 ---
 
+## Deploying
+
+Step-by-step deploy guide → **[DEPLOY.md](DEPLOY.md)** (Vercel for the
+frontend, Render for the backend Docker image, with `git push` auto-deploys).
+
+Quick summary:
+
+- `backend/Dockerfile` builds a production image with Python + Tectonic
+  (Linux static binary, no fontconfig setup needed unlike Windows).
+- `render.yaml` provisions the backend on Render in one click.
+- `frontend/vercel.json` configures Vercel as a Vite SPA.
+- The two are linked via `VITE_API_BASE` (frontend → backend URL) and
+  `CORS_ORIGINS` (backend allows frontend domain).
+
 ## Production notes
 
 - Lock `CORS_ORIGINS` in `.env` to your real frontend domain.

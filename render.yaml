@@ -1,0 +1,28 @@
+# Render Blueprint — provisions the STRIDE backend from this repo.
+# See https://render.com/docs/blueprint-spec
+#
+# After importing this file in Render's dashboard:
+#   1. Set GEMINI_API_KEY in the service's "Environment" tab (sync = false).
+#   2. Update CORS_ORIGINS to your Vercel frontend URL once it's deployed.
+
+services:
+  - type: web
+    name: stride-backend
+    runtime: docker
+    repo: https://github.com/REPLACE_WITH_YOUR_GITHUB_USERNAME/Catalyst2.0
+    branch: main
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false        # set this manually in Render dashboard
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: CORS_ORIGINS
+        value: https://YOUR-VERCEL-PROJECT.vercel.app
+      - key: TECTONIC_BIN
+        value: tectonic

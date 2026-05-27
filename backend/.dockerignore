@@ -1,0 +1,30 @@
+# Local Python
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local config + secrets — image must get config from runtime env vars
+.env
+.env.local
+.env.*.local
+
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Debug / smoke artifacts that may show up during development
+_smoke*.py
+_smoke*.pdf
+_failed.tex
+_user_resume*.tex
+_llm_raw_output.txt
+*.pdf
