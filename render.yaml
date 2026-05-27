@@ -9,7 +9,7 @@ services:
   - type: web
     name: stride-backend
     runtime: docker
-    repo: https://github.com/REPLACE_WITH_YOUR_GITHUB_USERNAME/Catalyst2.0
+    repo: https://github.com/YashIsTheBest247/Stride
     branch: main
     rootDir: backend
     dockerfilePath: ./Dockerfile
