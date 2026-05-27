@@ -1,0 +1,269 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root { color-scheme: light; }
+  html {
+    scroll-behavior: smooth;
+  }
+  html, body, #root { height: 100%; }
+  section[id] { scroll-margin-top: 88px; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+  }
+  body {
+    background-color: #f5efe2;
+    /* Premium cream canvas with subtle warm pools at the corners — barely
+       perceptible, just enough to give depth without breaking the paper feel. */
+    background-image:
+      radial-gradient(ellipse 70% 50% at 85% 0%, rgba(10, 9, 8, 0.05), transparent 60%),
+      radial-gradient(ellipse 80% 60% at 15% 100%, rgba(24, 23, 26, 0.04), transparent 60%);
+    background-attachment: fixed;
+    font-family: 'Inter', system-ui, sans-serif;
+    color: #0a0908;
+  }
+  ::selection {
+    background: rgba(10, 9, 8, 0.85);
+    color: #f5efe2;
+  }
+}
+
+@layer components {
+  /* Heavy industrial display headline */
+  .display {
+    font-family: 'Archivo', 'Inter', sans-serif;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    line-height: 0.92;
+    text-transform: uppercase;
+  }
+  /* Cinematic italic serif — used for taglines */
+  .serif {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: 0;
+  }
+  /* Graphite gradient — subtle dimensionality on the headline accents.
+     Restrained: deep charcoal at top, near-black at bottom. Premium. */
+  .chrome {
+    background: linear-gradient(180deg, #2a2a2c 0%, #0a0908 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+  .eyebrow {
+    font-family: 'Archivo', 'Inter', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    font-size: 11px;
+  }
+
+  /* Glass panels — softly recessed cream with dark hairline */
+  .panel {
+    background: rgba(10, 9, 8, 0.025);
+    border: 1px solid rgba(10, 9, 8, 0.08);
+    border-radius: 20px;
+  }
+  .panel-soft {
+    background: rgba(10, 9, 8, 0.015);
+    border: 1px solid rgba(10, 9, 8, 0.06);
+    border-radius: 14px;
+  }
+  /* Statement panel — solid graphite with cream content, inverted for impact */
+  .panel-sap {
+    background: linear-gradient(180deg, #18171a 0%, #0a0908 100%);
+    border: 1px solid rgba(10, 9, 8, 0.30);
+    border-radius: 20px;
+    color: #f5efe2;
+  }
+  /* Inside the inverted panel: flip every text element to cream so it stays
+     legible on the dark surface (h2/h3, paragraphs, eyebrows, etc.). */
+  .panel-sap,
+  .panel-sap h1,
+  .panel-sap h2,
+  .panel-sap h3,
+  .panel-sap p,
+  .panel-sap .eyebrow,
+  .panel-sap span {
+    color: #f5efe2;
+  }
+  .panel-sap .chrome {
+    background: linear-gradient(180deg, #f5efe2 0%, #b4b1a8 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+  .panel-sap .btn-cta {
+    background: linear-gradient(180deg, #f5efe2 0%, #ebe6da 100%);
+    color: #0a0908;
+    border: 1px solid rgba(255,255,255,0.45);
+    box-shadow: 0 12px 38px -16px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.6);
+  }
+  .panel-sap .btn-cta:hover {
+    background: linear-gradient(180deg, #ffffff 0%, #f5efe2 100%);
+  }
+  .panel-sap .btn-ghost {
+    background: rgba(255,255,255,0.06);
+    color: #f5efe2;
+    border-color: rgba(255,255,255,0.20);
+  }
+  .panel-sap .btn-ghost:hover {
+    background: rgba(255,255,255,0.10);
+    border-color: rgba(255,255,255,0.40);
+  }
+
+  /* Premium CTA — solid graphite with cream text. Apple-button quiet. */
+  .btn-cta {
+    @apply inline-flex items-center justify-between gap-3 rounded-full px-7 py-3.5 text-sm font-bold uppercase tracking-[0.18em] transition-all duration-200;
+    background: linear-gradient(180deg, #18171a 0%, #0a0908 100%);
+    color: #f5efe2;
+    border: 1px solid rgba(10, 9, 8, 0.50);
+    box-shadow: 0 12px 38px -16px rgba(10, 9, 8, 0.50), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .btn-cta:hover {
+    transform: translateY(-1px);
+    background: linear-gradient(180deg, #2a2a2c 0%, #18171a 100%);
+    box-shadow: 0 18px 50px -18px rgba(10, 9, 8, 0.65), inset 0 1px 0 rgba(255,255,255,0.12);
+  }
+  .btn-cta:active {
+    transform: translateY(0) scale(0.97);
+    transition-duration: 80ms;
+    box-shadow: 0 6px 18px -8px rgba(10, 9, 8, 0.35), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .btn-cta:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* Outline-style secondary action */
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-[0.18em] transition-all duration-200;
+    background: transparent;
+    border: 1px solid rgba(10, 9, 8, 0.25);
+    color: #2a2a2c;
+  }
+  .btn-ghost:hover {
+    background: rgba(10, 9, 8, 0.04);
+    border-color: rgba(10, 9, 8, 0.50);
+    color: #0a0908;
+  }
+  .btn-ghost:active {
+    transform: scale(0.97);
+    transition-duration: 80ms;
+  }
+
+  /* Nav link — dark by default (when nav is over cream content) */
+  .nav-link {
+    @apply text-xs font-bold uppercase tracking-[0.18em] transition-colors;
+    color: rgba(10, 9, 8, 0.50);
+  }
+  .nav-link:hover { color: #0a0908; }
+  .nav-link.active { color: #0a0908; }
+  .nav-link.active::after {
+    content: "";
+    display: block;
+    margin-top: 6px;
+    height: 2px;
+    background: #0a0908;
+  }
+
+  /* Option card */
+  .opt-card {
+    @apply flex items-center gap-3 rounded-2xl border p-4 text-left transition-all;
+    background: rgba(10, 9, 8, 0.02);
+    border-color: rgba(10, 9, 8, 0.08);
+  }
+  .opt-card[data-active="true"] {
+    background: rgba(10, 9, 8, 0.06);
+    border-color: rgba(10, 9, 8, 0.35);
+  }
+  .opt-card:hover { border-color: rgba(10, 9, 8, 0.20); }
+
+  /* Textarea — cream surface, dark text */
+  .ta {
+    @apply block w-full resize-none rounded-2xl p-5 font-mono text-[13px] leading-relaxed outline-none transition;
+    background: rgba(10, 9, 8, 0.025);
+    color: #18171a;
+    border: 1px solid rgba(10, 9, 8, 0.10);
+  }
+  .ta:focus {
+    border-color: rgba(10, 9, 8, 0.55);
+    box-shadow: 0 0 0 4px rgba(10, 9, 8, 0.05);
+  }
+  .ta::placeholder { color: rgba(10, 9, 8, 0.30); }
+
+  /* Marquee strip */
+  .marquee {
+    overflow: hidden;
+    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  }
+  .marquee-track {
+    display: flex;
+    width: max-content;
+    animation: marquee 40s linear infinite;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────
+   Plain-CSS animations (replacing former Framer Motion usage)
+   ──────────────────────────────────────────────────────────── */
+@keyframes drift-a {
+  0%, 100% { transform: translateX(-8%); }
+  50%      { transform: translateX(8%); }
+}
+@keyframes drift-b {
+  0%, 100% { transform: translateX(6%); }
+  50%      { transform: translateX(-6%); }
+}
+@keyframes scroll-bounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(6px); }
+}
+@keyframes nav-slide-down {
+  from { transform: translateY(-28px); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+/* Marquee — track moves leftward so items flow visually right-to-left
+   (enter on the right edge, exit on the left). Defined explicitly here
+   (not relying on the Tailwind config) so direction is guaranteed. */
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+/* Page enter — fade + slight rise. Used on route mount (/app etc.) */
+@keyframes page-enter {
+  0%   { opacity: 0; transform: translateY(16px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.anim-drift-a { animation: drift-a 32s ease-in-out infinite; }
+.anim-drift-b { animation: drift-b 58s ease-in-out infinite; }
+.anim-scroll-bounce { animation: scroll-bounce 1.8s ease-in-out infinite; }
+.anim-nav-slide-down {
+  animation: nav-slide-down 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.anim-page-enter {
+  animation: page-enter 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-drift-a, .anim-drift-b, .anim-scroll-bounce,
+  .anim-nav-slide-down, .anim-page-enter {
+    animation: none;
+  }
+}
+
+/* Scrollbar */
+textarea::-webkit-scrollbar { width: 8px; }
+textarea::-webkit-scrollbar-track { background: transparent; }
+textarea::-webkit-scrollbar-thumb {
+  background: rgba(10, 9, 8, 0.18);
+  border-radius: 8px;
+}
+textarea::-webkit-scrollbar-thumb:hover { background: rgba(10, 9, 8, 0.32); }

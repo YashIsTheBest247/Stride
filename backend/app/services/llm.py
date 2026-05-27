@@ -1,0 +1,188 @@
+import json
+import logging
+import re
+import time
+from dataclasses import dataclass
+
+from google import genai
+from google.genai import types
+
+from ..config import get_settings
+from ..prompts import SYSTEM_PROMPT, build_user_prompt
+
+logger = logging.getLogger("uvicorn.error")
+
+# Tunables for transient-error retries (Gemini 503 / 429 / 500).
+_RETRY_STATUSES = ("503", "UNAVAILABLE", "429", "RESOURCE_EXHAUSTED", "500", "INTERNAL")
+_MAX_RETRIES = 3
+_BACKOFFS_SEC = (2.0, 5.0, 10.0)  # exponential-ish
+
+
+@dataclass
+class TailorResult:
+    latex: str
+    full_name: str
+    company: str
+    role: str
+
+
+_LATEX_BLOCK = re.compile(r"```(?:latex|tex)?\s*\n(.*?)```", re.DOTALL)
+# Accepts either the new "full_name" field or the legacy "first_name" key.
+_METADATA_LINE = re.compile(
+    r"\{[^{}\n]*\"(?:full_name|first_name)\"[^{}\n]*\}", re.DOTALL
+)
+
+
+_REPAIR_SYSTEM_PROMPT = """You are a LaTeX compile-error fixer for the STRIDE pipeline.
+
+You receive:
+  1. A .tex source that failed to compile under Tectonic (XeLaTeX, strict mode).
+  2. The Tectonic error message (with log tail).
+
+Return ONLY the FULL fixed .tex source inside a single fenced code block tagged `latex`.
+
+RULES:
+- Make the MINIMUM edits required to compile. Do not refactor.
+- Preserve content, structure, layout, fonts, packages, and section ordering.
+- Common fixes to consider:
+  * Option case errors (e.g. `dvipsNames` → `dvipsnames`)
+  * Switch `color` to `xcolor` when the option list requires it
+    (`dvipsnames`, `svgnames`, `x11names`, `table`, etc. are xcolor-only)
+  * Escape unescaped special chars in plain prose (%, &, _, #, $)
+  * Balance braces, env begin/end pairs
+  * Remove options that are unsupported by the listed package
+  * Add missing \\usepackage{} for commands that aren't defined
+- Do NOT add new sections, jobs, or content. Do NOT change wording.
+- Do NOT add commentary, only the code block.
+
+Output format example:
+```latex
+\\documentclass{...}
+...full fixed file...
+```
+"""
+
+
+def _sanitize_segment(value: str, fallback: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9]+", "_", (value or "").strip()).strip("_")
+    return cleaned or fallback
+
+
+def _parse_response(raw: str) -> TailorResult:
+    latex_match = _LATEX_BLOCK.search(raw)
+    if not latex_match:
+        raise ValueError("LLM did not return a ```latex code block.")
+    latex = latex_match.group(1).rstrip() + "\n"
+
+    metadata_match = _METADATA_LINE.search(raw[: latex_match.start()])
+    if not metadata_match:
+        metadata_match = _METADATA_LINE.search(raw)
+    if not metadata_match:
+        raise ValueError("LLM did not return the metadata JSON line.")
+
+    try:
+        meta = json.loads(metadata_match.group(0))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Could not parse metadata JSON: {exc}") from exc
+
+    raw_name = meta.get("full_name") or meta.get("first_name") or ""
+    return TailorResult(
+        latex=latex,
+        full_name=_sanitize_segment(raw_name, "Candidate"),
+        company=_sanitize_segment(meta.get("company", ""), "Company"),
+        role=_sanitize_segment(meta.get("role", ""), "Role"),
+    )
+
+
+def _get_client() -> "genai.Client":
+    settings = get_settings()
+    if not settings.gemini_api_key:
+        raise RuntimeError("GEMINI_API_KEY is not configured.")
+    return genai.Client(api_key=settings.gemini_api_key)
+
+
+def _is_transient(exc: Exception) -> bool:
+    """True if the Gemini exception looks like a temporary capacity/quota blip."""
+    msg = str(exc).upper()
+    return any(token in msg for token in _RETRY_STATUSES)
+
+
+def _call_gemini(model: str, contents: str, system_instruction: str, temperature: float):
+    """Single Gemini call with bounded retry on 503/429/500."""
+    client = _get_client()
+    last_exc: Exception | None = None
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            return client.models.generate_content(
+                model=model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    temperature=temperature,
+                    max_output_tokens=16000,
+                ),
+            )
+        except Exception as exc:
+            last_exc = exc
+            if attempt >= _MAX_RETRIES or not _is_transient(exc):
+                raise
+            delay = _BACKOFFS_SEC[min(attempt, len(_BACKOFFS_SEC) - 1)]
+            logger.warning(
+                "[STRIDE Gemini] transient error (attempt %d/%d), retrying in %.1fs: %s",
+                attempt + 1, _MAX_RETRIES + 1, delay, str(exc)[:200],
+            )
+            time.sleep(delay)
+    # Unreachable, but keeps type checkers happy.
+    raise last_exc if last_exc else RuntimeError("Gemini call failed without exception")
+
+
+def tailor_resume(latex_source: str, job_description: str) -> TailorResult:
+    settings = get_settings()
+    response = _call_gemini(
+        model=settings.gemini_model,
+        contents=build_user_prompt(latex_source, job_description),
+        system_instruction=SYSTEM_PROMPT,
+        temperature=0.2,
+    )
+    raw = (response.text or "").strip()
+    if not raw:
+        raise ValueError("Gemini returned an empty response.")
+    try:
+        return _parse_response(raw)
+    except ValueError:
+        # Log a short head of the unparseable response so we can debug from the
+        # terminal without polluting the working directory with dump files.
+        head = raw[:400].replace("\n", "\\n")
+        logger.error("[STRIDE LLM] parse failed (len=%d) head=%r", len(raw), head)
+        raise
+
+
+def fix_latex_compile_error(latex: str, tectonic_error: str) -> str:
+    """Ask Gemini to repair a .tex that Tectonic failed to compile.
+
+    Returns the repaired .tex string. Raises ValueError if the model didn't
+    return a parseable ```latex block.
+    """
+    settings = get_settings()
+    user_prompt = (
+        "TECTONIC ERROR:\n"
+        "----------------\n"
+        f"{tectonic_error.strip()}\n\n"
+        "BROKEN .tex:\n"
+        "------------\n"
+        f"{latex}\n\n"
+        "Return the FULL fixed .tex inside a ```latex code block."
+    )
+    response = _call_gemini(
+        model=settings.gemini_model,
+        contents=user_prompt,
+        system_instruction=_REPAIR_SYSTEM_PROMPT,
+        temperature=0.0,
+    )
+    raw = (response.text or "").strip()
+    if not raw:
+        raise ValueError("Repair LLM returned an empty response.")
+    match = _LATEX_BLOCK.search(raw)
+    if not match:
+        raise ValueError("Repair LLM did not return a ```latex code block.")
+    return match.group(1).rstrip() + "\n"
