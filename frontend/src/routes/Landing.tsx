@@ -76,7 +76,7 @@ export default function Landing() {
       {/* INTRO — headline + CTAs, auto-scroll target */}
       <section
         id="intro"
-        className="relative overflow-hidden px-8 pt-12 pb-16"
+        className="relative overflow-hidden px-8 pt-6 pb-12"
       >
         <div className="mx-auto w-full max-w-[1400px]">
           <div className="max-w-5xl">
@@ -86,7 +86,7 @@ export default function Landing() {
               Stride — <span className="text-sap-50">Your Resume.</span> Engineered to Win.
             </p>
 
-            <h1 className="display mt-5 text-[clamp(2.5rem,6.5vw,5.5rem)]">
+            <h1 className="display mt-4 text-[clamp(2.25rem,5.5vw,4.5rem)]">
               <span className="block chrome">Tailored.</span>
               <span className="block text-sap-200">
                 <TypewriterWord words={ROTATING} />
