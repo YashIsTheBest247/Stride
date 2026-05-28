@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowUpRight, CheckCircle2, Download, Loader2, Sparkles, XCircle } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, BookmarkPlus, CheckCircle2, Download, Loader2, Sparkles, Star, XCircle } from "lucide-react";
 import Marquee from "../components/Marquee";
 import { tailorResume, type TailorResponse } from "../lib/api";
+import { hasDefaultLatex, loadDefaultLatex, saveDefaultLatex } from "../lib/defaultResume";
 
 type Status = "idle" | "loading" | "done" | "error";
 
@@ -17,6 +18,39 @@ export default function AppPage() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
+
+  // If we arrived from /search via the "Tailor" button, pre-fill the textareas
+  // from sessionStorage (set by Search.tsx) so the user doesn't have to paste
+  // twice. Clear the handoff slot immediately so a refresh doesn't re-apply.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("stride:prefill");
+      if (!raw) return;
+      sessionStorage.removeItem("stride:prefill");
+      const data = JSON.parse(raw) as { latex?: string; jd?: string };
+      if (data.latex) setLatex(data.latex);
+      if (data.jd) setJd(data.jd);
+    } catch {
+      /* corrupt sessionStorage entry — ignore */
+    }
+  }, []);
+
+  // Default-resume slot — persisted in localStorage.
+  const [hasDefault, setHasDefault] = useState(false);
+  useEffect(() => {
+    setHasDefault(hasDefaultLatex());
+  }, []);
+
+  function loadDefault() {
+    const t = loadDefaultLatex();
+    if (t) setLatex(t);
+  }
+
+  function saveDefault() {
+    if (!latex.trim()) return;
+    saveDefaultLatex(latex);
+    setHasDefault(true);
+  }
 
   const canSubmit = latex.trim().length > 100 && jd.trim().length > 50 && status !== "loading";
 
@@ -56,7 +90,7 @@ export default function AppPage() {
 
   return (
     <main className="anim-page-enter relative">
-      <section className="px-8 pt-36 pb-12">
+      <section className="px-8 pt-24 pb-8">
         <div className="mx-auto max-w-[1400px]">
           <p className="eyebrow text-sap-200/70">/ Tailor</p>
           <h1 className="display mt-4 text-5xl text-sap-50 md:text-6xl">
@@ -83,12 +117,36 @@ export default function AppPage() {
           {/* TWO PANES */}
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="panel p-6">
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <span className="display text-sm text-sap-100">01</span>
                   <h2 className="display text-xl text-sap-50">LaTeX source</h2>
                 </div>
-                <span className="eyebrow text-sap-100/40">{latex.length.toLocaleString()} chars</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={loadDefault}
+                    disabled={!hasDefault}
+                    title={hasDefault
+                      ? "Load your saved default .tex"
+                      : "Save a default first using the bookmark button →"}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-black/15 bg-black/[0.03] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-sap-200 transition hover:border-black/40 hover:text-sap-50 active:scale-[0.97] disabled:opacity-40 disabled:hover:border-black/15"
+                  >
+                    <Star size={11} />
+                    Default
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveDefault}
+                    disabled={!latex.trim()}
+                    title="Save the current .tex as your default for future visits"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-black/15 bg-black/[0.03] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-sap-200 transition hover:border-black/40 hover:text-sap-50 active:scale-[0.97] disabled:opacity-40 disabled:hover:border-black/15"
+                  >
+                    <BookmarkPlus size={11} />
+                    Save
+                  </button>
+                  <span className="eyebrow text-sap-100/40">{latex.length.toLocaleString()} chars</span>
+                </div>
               </div>
               <textarea
                 value={latex}

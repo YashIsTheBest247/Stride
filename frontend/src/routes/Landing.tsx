@@ -13,9 +13,21 @@ const ROTATING = [
 ];
 
 const STEPS = [
-  { n: "01", title: "Paste LaTeX", body: "Drop in your existing .tex source — the resume you already trust." },
-  { n: "02", title: "Paste the JD", body: "Copy the job description straight from the listing. Title, requirements, the lot." },
-  { n: "03", title: "Download PDF", body: "Named Firstname_Company_Role.pdf. Formatting untouched. Ready to send." },
+  {
+    n: "01",
+    title: "Search live boards",
+    body: "Filter by role, location, and internship status. Aggregates live postings from Greenhouse, Lever, LinkedIn, Indeed, Glassdoor, and ZipRecruiter in one panel.",
+  },
+  {
+    n: "02",
+    title: "One-click Tailor",
+    body: "Pick a match, the JD auto-fills the tailor. Paste your .tex once — Gemini rewrites the bullets and skills to load the JD's keywords, formatting untouched.",
+  },
+  {
+    n: "03",
+    title: "Download PDF",
+    body: "Compiled server-side by Tectonic, auto-shrunk to one page, named FullName_Role.pdf. Ready to send in under 30 seconds.",
+  },
 ];
 
 const AUTO_SCROLL_DELAY_MS = 10000;
@@ -82,11 +94,11 @@ export default function Landing() {
           <div className="max-w-5xl">
             <p className="eyebrow text-sap-200/70">/ STRIDE · Resume Engine</p>
 
-            <p className="serif mt-4 text-2xl text-sap-100/85 md:text-3xl">
+            <p className="serif mt-3 text-xl text-sap-100/85 md:text-2xl">
               Stride — <span className="text-sap-50">Your Resume.</span> Engineered to Win.
             </p>
 
-            <h1 className="display mt-4 text-[clamp(2.25rem,5.5vw,4.5rem)]">
+            <h1 className="display mt-3 text-[clamp(2rem,4.5vw,3.75rem)]">
               <span className="block chrome">Tailored.</span>
               <span className="block text-sap-200">
                 <TypewriterWord words={ROTATING} />
@@ -94,11 +106,11 @@ export default function Landing() {
               <span className="block chrome">Hired Faster.</span>
             </h1>
 
-            <p className="mt-6 max-w-2xl text-base leading-relaxed text-sap-200/70">
-              Paste your LaTeX. Paste a job description. STRIDE rewrites only what an ATS reads — bullets, skills, keywords — and ships a polished PDF in seconds. Your formatting stays exactly where you put it.
+            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-sap-200/70">
+              Search live internship boards — Greenhouse, Lever, LinkedIn, Indeed, Glassdoor — from one panel. One click on any match hands the JD to the tailor. Gemini rewrites your LaTeX to load the right keywords, Tectonic compiles, your formatting stays exactly where you put it.
             </p>
 
-            <div className="mt-8 flex flex-wrap items-center gap-4">
+            <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link to="/app" className="btn-cta">
                 <span>Start tailoring</span>
                 <ArrowUpRight size={14} />
@@ -113,17 +125,17 @@ export default function Landing() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section id="how" className="px-8 pt-20 pb-12">
+      <section id="how" className="px-8 pt-8 pb-12">
         <div className="mx-auto max-w-[1400px]">
-          <div className="mb-16 flex items-end justify-between gap-8">
+          <div className="mb-8 flex items-end justify-between gap-8">
             <div>
               <p className="eyebrow text-sap-200/70">/ Pipeline</p>
-              <h2 className="display mt-4 text-5xl text-sap-50">
+              <h2 className="display mt-3 text-4xl text-sap-50 md:text-5xl">
                 Three steps. <span className="chrome">No tinkering.</span>
               </h2>
             </div>
             <p className="hidden md:block max-w-md text-sm text-sap-200/55">
-              No Overleaf round-trip. No toolchain on your machine. Paste, click, download.
+              No Overleaf round-trip. No toolchain on your machine. No copy-pasting JDs between tabs. Search, click, download.
             </p>
           </div>
 
