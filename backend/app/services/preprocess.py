@@ -183,33 +183,117 @@ def strip_added_bolds(latex: str) -> str:
     return latex
 
 
+_SECTION_SPLIT = re.compile(r"(\\section\*?\{[^}]*\})")
+_LIST_START_RE = re.compile(r"\\resumeItemListStart\b")
+_LIST_END_RE = re.compile(r"\\resumeItemListEnd\b")
+_RESUME_ITEM_RE = re.compile(r"\\resumeItem\{")
+
+
+def ensure_bullet_wrappers(latex: str) -> str:
+    r"""Wrap orphan ``\resumeItem`` calls in ``\resumeItemListStart``/``End``.
+
+    Resume templates render bullet markers (•) only when ``\resumeItem`` sits
+    inside the template's itemize-wrapping command pair. LLMs occasionally
+    emit Achievements or similar sections as bare ``\resumeItem{...}`` lines
+    with no surrounding wrapper, producing bulletless paragraphs in the PDF.
+
+    For each ``\section{...}`` block: if the body contains ``\resumeItem{``
+    but ZERO ``\resumeItemListStart``, wrap the contiguous span from the
+    first ``\resumeItem`` to the closing brace of the last one. Sections
+    that already wrap their items are left untouched.
+    """
+    parts = _SECTION_SPLIT.split(latex)
+    if len(parts) < 3:
+        return latex
+    rebuilt: list[str] = [parts[0]]
+    i = 1
+    while i < len(parts):
+        header = parts[i]
+        body = parts[i + 1] if i + 1 < len(parts) else ""
+        rebuilt.append(header)
+        rebuilt.append(_wrap_orphan_items_in_section_body(body))
+        i += 2
+    return "".join(rebuilt)
+
+
+def _wrap_orphan_items_in_section_body(body: str) -> str:
+    if not _RESUME_ITEM_RE.search(body):
+        return body
+    if _LIST_START_RE.search(body):
+        return body  # template already wrapped them; trust it
+    first = body.find("\\resumeItem{")
+    last_open = body.rfind("\\resumeItem{")
+    if first < 0 or last_open < 0:
+        return body
+    last_brace_start = last_open + len("\\resumeItem")
+    last_close = _find_matching_brace(body, last_brace_start)
+    if last_close < 0:
+        return body
+    return (
+        body[:first]
+        + "\\resumeItemListStart\n  "
+        + body[first:last_close + 1]
+        + "\n\\resumeItemListEnd"
+        + body[last_close + 1:]
+    )
+
+
 _DOCCLASS_FONTSIZE = re.compile(
     r"(\\documentclass\[[^\]]*?)\b(11|12)pt\b"
 )
 
 
+_SHRINK_MARKER = "% STRIDE-SHRINK-V4"
+_OLD_SHRINK_MARKERS = ("% STRIDE-SHRINK-V2", "% STRIDE-SHRINK-V3")
+
+
 def shrink_to_fit(latex: str) -> str:
-    """Force the resume onto one page.
+    """Force the tailored resume onto one page WITHOUT cropping the header.
 
-    Two adjustments:
-      1. \\documentclass[..., 11pt|12pt, ...] -> 10pt (smallest standard size).
-      2. After the existing geometry adjustments in the preamble, add another
-         half-inch of textheight if there isn't already plenty.
+    V3 used \\addtolength{\\topmargin}{-0.4in} to pull content up, which on
+    some templates pushed the name/contact header above the printable area.
+    V4 fixes that: NO topmargin shift, and the vertical room we still need
+    comes from a moderate textheight expansion + tighter item spacing.
 
-    Applies to the final .tex right before compile.
+    Net page coverage vs V3:
+        V3 bottom = T_default - 0.4 + (H + 1.2) = T_default + H + 0.8
+        V4 bottom = T_default       + (H + 0.8) = T_default + H + 0.8
+    Same bottom — header is no longer cropped because everything is shifted
+    0.4in down, into the printable area.
+
+    Knobs:
+      1. \\documentclass[..., 11pt|12pt, ...] -> 10pt.
+      2. textheight +0.8in, textwidth +0.4in, side margins -0.2in.
+      3. \\linespread{0.93} + \\itemsep / \\parskip / \\parsep = 0pt so
+         bullet lists don't waste vertical room between items.
+
+    Injected once, right before \\begin{document}. Idempotent — re-runs on
+    already-shrunk .tex are no-ops, and prior V2/V3-marker installs are
+    detected and left alone.
     """
     out = _DOCCLASS_FONTSIZE.sub(lambda m: f"{m.group(1)}10pt", latex)
-    # If the preamble doesn't already crank textheight aggressively, add some.
-    # We just append a one-shot \addtolength after \begin{document} marker
-    # candidates fail — easier and safer to do it right before \begin{document}.
-    if "\\addtolength{\\textheight}{0.5in}" not in out:
-        out = out.replace(
-            "\\begin{document}",
-            "% STRIDE: extra textheight to keep one-page fit after tailoring\n"
-            "\\addtolength{\\textheight}{0.5in}\n"
-            "\\begin{document}",
-            1,
-        )
+    if _SHRINK_MARKER in out:
+        return out
+    # If a previous V2/V3 marker is present (e.g. user pasted a once-shrunk
+    # .tex), don't double-inject — return as-is to stay idempotent.
+    if any(m in out for m in _OLD_SHRINK_MARKERS):
+        return out
+    injection = (
+        f"{_SHRINK_MARKER}: tighten geometry so tailored content fits one page\n"
+        "\\addtolength{\\textheight}{0.8in}\n"
+        "\\addtolength{\\textwidth}{0.4in}\n"
+        "\\addtolength{\\oddsidemargin}{-0.2in}\n"
+        "\\addtolength{\\evensidemargin}{-0.2in}\n"
+        "\\linespread{0.93}\n"
+        "\\setlength{\\parskip}{0pt}\n"
+        "\\setlength{\\parsep}{0pt}\n"
+        "\\setlength{\\itemsep}{0pt}\n"
+    )
+    out = out.replace(
+        "\\begin{document}",
+        injection + "\\begin{document}",
+        1,
+    )
     return out
 
 
@@ -227,5 +311,6 @@ def sanitize_for_tectonic(latex: str, *, shrink: bool = False) -> str:
     latex = fix_command_environment_confusion(latex)
     if shrink:
         latex = strip_added_bolds(latex)
+        latex = ensure_bullet_wrappers(latex)
         latex = shrink_to_fit(latex)
     return latex

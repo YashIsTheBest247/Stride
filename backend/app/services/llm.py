@@ -68,6 +68,78 @@ def _sanitize_segment(value: str, fallback: str) -> str:
     return cleaned or fallback
 
 
+# Words that almost always appear in a job title. Used by the JD-side
+# fallback extractor when the LLM returns the literal "Role" placeholder.
+_ROLE_NOUNS = (
+    "engineer", "developer", "designer", "scientist", "analyst", "manager",
+    "intern", "associate", "consultant", "specialist", "architect",
+    "researcher", "lead", "director", "head", "administrator",
+    "programmer", "coordinator", "strategist", "marketer",
+)
+_ROLE_NOUNS_RE = re.compile(
+    r"\b(?:" + "|".join(_ROLE_NOUNS) + r")s?\b", re.IGNORECASE
+)
+
+# Labelled-line patterns: "Position: Backend Developer", "Role: ...", etc.
+_LABELLED_ROLE = re.compile(
+    r"^(?:\s*[*#>\-]+\s*)?"                          # optional bullet/header prefix
+    r"(?:job\s*title|position|role|title|hiring\s*for)"
+    r"\s*[:\-]\s*"
+    r"([^\n]+)",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# Verb-phrase patterns inside prose: "We are hiring a Senior Backend Engineer..."
+_PROSE_ROLE = re.compile(
+    r"\b(?:hiring|seeking|looking\s+for|recruiting|join\s+us\s+as|in\s+search\s+of)\s+"
+    r"(?:a|an|the|our\s+next)?\s*"
+    r"([A-Z][A-Za-z0-9/+\-]*(?:\s+[A-Za-z0-9/+\-]+){0,5})",
+)
+
+
+def _extract_role_from_jd(jd: str) -> str | None:
+    """Best-effort regex extraction of a job title from a free-form JD.
+
+    Tried in priority order:
+      1. Labelled lines: "Position: X" / "Role: X" / "Job Title: X".
+      2. Hiring-verb prose: "We are hiring a Senior Backend Engineer ...".
+      3. First short line (≤ 80 chars) that contains a role noun.
+    Returns None if nothing usable is found.
+    """
+    if not jd:
+        return None
+    text = jd.strip()
+
+    # 1. Labelled line — take only up to the first sentence-ending punctuation
+    #    or pipe/bullet/comma, then trim role nouns out from any noise after.
+    m = _LABELLED_ROLE.search(text)
+    if m:
+        candidate = re.split(r"[|•·,.;\n]", m.group(1), maxsplit=1)[0].strip()
+        candidate = re.sub(r"\s+", " ", candidate).strip(" -–—:")
+        if candidate and len(candidate) <= 80:
+            return candidate
+
+    # 2. Prose verb match — only accept if the captured phrase has a role noun
+    for m in _PROSE_ROLE.finditer(text):
+        phrase = m.group(1).strip()
+        if _ROLE_NOUNS_RE.search(phrase):
+            # trim trailing "to ...", "who ...", "with ..." clauses
+            phrase = re.split(r"\b(?:to|who|that|with|for|in|at)\b", phrase, maxsplit=1)[0].strip()
+            if phrase and len(phrase) <= 80:
+                return phrase
+
+    # 3. First short line with a role noun (typical for JDs that lead with the
+    #    title as a header). Skip lines that look like company taglines.
+    for line in text.splitlines()[:20]:
+        stripped = line.strip(" -–—*#>").strip()
+        if not stripped or len(stripped) > 80:
+            continue
+        if _ROLE_NOUNS_RE.search(stripped):
+            return stripped
+
+    return None
+
+
 # Trailing tokens we strip from the role to keep the filename short. The user
 # wants the *position* in the filename, not employment-type fluff.
 _ROLE_TRAIL_NOISE = (
@@ -198,13 +270,28 @@ def tailor_resume(latex_source: str, job_description: str) -> TailorResult:
     if not raw:
         raise ValueError("Gemini returned an empty response.")
     try:
-        return _parse_response(raw)
+        result = _parse_response(raw)
     except ValueError:
         # Log a short head of the unparseable response so we can debug from the
         # terminal without polluting the working directory with dump files.
         head = raw[:400].replace("\n", "\\n")
         logger.error("[STRIDE LLM] parse failed (len=%d) head=%r", len(raw), head)
         raise
+
+    # JD-side fallback: if the LLM returned the literal "Role" placeholder
+    # (i.e. it couldn't pull a title from the JD), try regex extraction over
+    # the JD ourselves. Same for company via a simple "at <Company>" sweep.
+    if result.role == "Role":
+        extracted = _extract_role_from_jd(job_description)
+        if extracted:
+            cleaned = _clean_role_for_filename(_sanitize_segment(extracted, "Role"))
+            if cleaned and cleaned != "Role":
+                logger.info(
+                    "[STRIDE LLM] LLM returned placeholder role; extracted %r from JD",
+                    cleaned,
+                )
+                result.role = cleaned
+    return result
 
 
 def fix_latex_compile_error(latex: str, tectonic_error: str) -> str:

@@ -80,8 +80,23 @@ async def tailor(payload: TailorRequest):
             len(payload.latex_source), len(sanitized_input),
         )
 
+    def _diff_ratio(a: str, b: str) -> float:
+        # Quick char-position diff. Cheap signal of "did the LLM rewrite?"
+        if not a or not b:
+            return 1.0
+        differing = sum(1 for x, y in zip(a, b) if x != y)
+        return differing / max(len(a), len(b))
+
     try:
         result = tailor_resume(sanitized_input, payload.job_description)
+        # Echo detection — if the LLM (often a fallback model under load) just
+        # echoed the input, retry once with the same prompt. Generation
+        # temperature jitter usually breaks the echo on second attempt.
+        if _diff_ratio(sanitized_input, result.latex) < 0.03:
+            logger.warning(
+                "[STRIDE /tailor] suspected echo (diff <3%%); retrying tailor once"
+            )
+            result = tailor_resume(sanitized_input, payload.job_description)
     except RuntimeError as exc:
         logger.error("[STRIDE LLM] config error: %s", exc)
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -97,21 +112,22 @@ async def tailor(payload: TailorRequest):
         result.full_name, result.company, result.role, len(result.latex),
     )
 
-    # Sanity check: did the LLM preserve the bullet count?
+    # Sanity check: existing bullets preserved? (Adding new ones is now
+    # explicitly allowed for JD-relevant augmentation — only a DROP is bad.)
     in_bullets = sanitized_input.count("\\resumeItem{") + sanitized_input.count("\\item ")
     out_bullets = result.latex.count("\\resumeItem{") + result.latex.count("\\item ")
     if out_bullets < in_bullets:
         logger.warning(
-            "[STRIDE /tailor] BULLET COUNT DROPPED: input=%d output=%d (LLM ignored preserve rule)",
+            "[STRIDE /tailor] BULLET COUNT DROPPED: input=%d output=%d (LLM violated preserve rule)",
             in_bullets, out_bullets,
         )
     elif out_bullets > in_bullets:
-        logger.warning(
-            "[STRIDE /tailor] bullet count INCREASED: input=%d output=%d",
-            in_bullets, out_bullets,
+        logger.info(
+            "[STRIDE /tailor] bullets augmented: input=%d output=%d (+%d JD-relevant adds)",
+            in_bullets, out_bullets, out_bullets - in_bullets,
         )
     else:
-        logger.info("[STRIDE /tailor] bullet count preserved: %d", in_bullets)
+        logger.info("[STRIDE /tailor] bullet count unchanged: %d", in_bullets)
 
     # Sanity check: did the LLM actually rewrite anything? If the output is
     # basically the input verbatim, the user got a useless PDF.

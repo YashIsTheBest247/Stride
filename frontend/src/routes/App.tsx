@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowUpRight, BookmarkPlus, CheckCircle2, Download, Loader2, Sparkles, Star, XCircle } from "lucide-react";
 import Marquee from "../components/Marquee";
 import { tailorResume, type TailorResponse } from "../lib/api";
@@ -12,6 +12,7 @@ export default function AppPage() {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string>("");
   const [result, setResult] = useState<TailorResponse | null>(null);
+  const resultRef = useRef<HTMLDivElement | null>(null);
 
   // Reset scroll on mount so the textarea panels are immediately visible
   // when arriving from /landing → /app.
@@ -40,6 +41,17 @@ export default function AppPage() {
   useEffect(() => {
     setHasDefault(hasDefaultLatex());
   }, []);
+
+  // When the PDF is ready, scroll the result panel (with the Download button)
+  // into view so the user doesn't have to hunt for it after a 15–30s wait.
+  useEffect(() => {
+    if (status !== "done" || !result || !resultRef.current) return;
+    // Wait one frame so the panel is mounted before we scroll to it.
+    const id = window.requestAnimationFrame(() => {
+      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [status, result]);
 
   function loadDefault() {
     const t = loadDefaultLatex();
@@ -205,7 +217,7 @@ export default function AppPage() {
 
           {/* RESULTS */}
           {status === "done" && result && (
-            <div className="mt-10">
+            <div ref={resultRef} className="mt-10 scroll-mt-24">
               <div className="panel-sap p-8">
                 <div className="flex flex-col items-start gap-6 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-start gap-5">
