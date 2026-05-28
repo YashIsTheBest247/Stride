@@ -23,6 +23,6 @@ services:
       - key: GEMINI_MODEL
         value: gemini-2.5-flash
       - key: CORS_ORIGINS
-        value: https://YOUR-VERCEL-PROJECT.vercel.app
+        value: https://getstrideai.vercel.app
       - key: TECTONIC_BIN
         value: tectonic
