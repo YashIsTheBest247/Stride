@@ -7,6 +7,10 @@ class Settings(BaseSettings):
 
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
+    # Fallback model used when the primary returns 503/UNAVAILABLE after all
+    # retries. Different capacity pool, usually has headroom when 2.5-flash
+    # is overloaded. Leave empty to disable the fallback.
+    gemini_model_fallback: str = "gemini-2.5-flash-lite"
 
     tectonic_bin: str = "tectonic"
 

@@ -2,9 +2,9 @@
 
 > LaTeX. Tailored. ATS. Shipped.
 
-Paste a LaTeX resume + a job description → STRIDE rewrites the bullets and
-skills to weave in JD keywords → compiles a PDF named `{FullName}_{Role}.pdf`.
-Your formatting stays untouched.
+- **Scrapes** live job postings from Greenhouse, Lever, and Internshala — plus deep-link buttons to LinkedIn, Indeed, Glassdoor, Wellfound, and Naukri.
+- **Tailors** your LaTeX resume to any JD: Gemini rewrites bullets and skills to weave in keywords while preserving your formatting.
+- **Emits a PDF** compiled server-side by Tectonic, auto-shrunk to one page, named `{FullName}_{Role}.pdf`.
 
 **Stack** — React + Vite + Tailwind · FastAPI · Tectonic (LaTeX → PDF) ·
 Google Gemini (free tier) · BeautifulSoup (Internshala scraper).
@@ -192,7 +192,8 @@ Tectonic is stricter than most LaTeX engines and has a known Windows bug around 
 
 ```ini
 GEMINI_API_KEY=...                                   # required
-GEMINI_MODEL=gemini-2.5-flash                        # default
+GEMINI_MODEL=gemini-2.5-flash                        # primary
+GEMINI_MODEL_FALLBACK=gemini-2.5-flash-lite          # auto-fallback on 503/UNAVAILABLE; empty to disable
 TECTONIC_BIN=C:\Users\you\tectonic\tectonic.exe      # or "tectonic" if on PATH (Linux/Mac default)
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,https://getstrideai.vercel.app
 HOST=0.0.0.0

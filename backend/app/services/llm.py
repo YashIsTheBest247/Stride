@@ -138,8 +138,8 @@ def _is_transient(exc: Exception) -> bool:
     return any(token in msg for token in _RETRY_STATUSES)
 
 
-def _call_gemini(model: str, contents: str, system_instruction: str, temperature: float):
-    """Single Gemini call with bounded retry on 503/429/500."""
+def _attempt_with_retries(model: str, contents: str, system_instruction: str, temperature: float):
+    """One model + the configured retry policy. Raises on final failure."""
     client = _get_client()
     last_exc: Exception | None = None
     for attempt in range(_MAX_RETRIES + 1):
@@ -159,12 +159,29 @@ def _call_gemini(model: str, contents: str, system_instruction: str, temperature
                 raise
             delay = _BACKOFFS_SEC[min(attempt, len(_BACKOFFS_SEC) - 1)]
             logger.warning(
-                "[STRIDE Gemini] transient error (attempt %d/%d), retrying in %.1fs: %s",
-                attempt + 1, _MAX_RETRIES + 1, delay, str(exc)[:200],
+                "[STRIDE Gemini:%s] transient error (attempt %d/%d), retrying in %.1fs: %s",
+                model, attempt + 1, _MAX_RETRIES + 1, delay, str(exc)[:200],
             )
             time.sleep(delay)
-    # Unreachable, but keeps type checkers happy.
     raise last_exc if last_exc else RuntimeError("Gemini call failed without exception")
+
+
+def _call_gemini(model: str, contents: str, system_instruction: str, temperature: float):
+    """Try primary model with retries; on persistent transient failure, fall
+    back to the configured backup model (different capacity pool) for one
+    more retry cycle. This catches Gemini 2.5 Flash "high demand" hiccups."""
+    settings = get_settings()
+    try:
+        return _attempt_with_retries(model, contents, system_instruction, temperature)
+    except Exception as exc:
+        fallback = settings.gemini_model_fallback.strip()
+        if fallback and fallback != model and _is_transient(exc):
+            logger.warning(
+                "[STRIDE Gemini] primary %s exhausted retries; falling back to %s",
+                model, fallback,
+            )
+            return _attempt_with_retries(fallback, contents, system_instruction, temperature)
+        raise
 
 
 def tailor_resume(latex_source: str, job_description: str) -> TailorResult:
