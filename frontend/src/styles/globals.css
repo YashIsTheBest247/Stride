@@ -107,6 +107,12 @@
   .panel-sap .btn-cta:hover {
     background: linear-gradient(180deg, #ffffff 0%, #f5efe2 100%);
   }
+  /* Force child spans/icons inside the cream button to inherit the button's
+     dark color — otherwise the broader `.panel-sap span { color: cream }`
+     rule above wins on specificity and the label disappears. */
+  .panel-sap .btn-cta * {
+    color: inherit;
+  }
   .panel-sap .btn-ghost {
     background: rgba(255,255,255,0.06);
     color: #f5efe2;

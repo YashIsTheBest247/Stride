@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight, ChevronDown, Play } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Github, Globe, Linkedin, Play } from "lucide-react";
 import TypewriterWord from "../components/TypewriterWord";
 import VideoBackdrop from "../components/VideoBackdrop";
 
@@ -160,9 +160,43 @@ export default function Landing() {
       </section>
 
       <footer className="border-t border-black/[0.10] px-8 py-10">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between">
-          <p className="eyebrow text-sap-400">STRIDE · 2026</p>
-          <p className="serif text-sap-300">Engineered to Win.</p>
+        <div className="mx-auto flex max-w-[1400px] flex-col items-center justify-between gap-6 md:flex-row">
+          <p className="eyebrow text-sap-400">© 2026 · All rights reserved</p>
+
+          <div className="flex items-center gap-5">
+            <span className="eyebrow text-sap-400">Connect with developer</span>
+            <span className="hidden h-3 w-px bg-black/15 md:inline-block" />
+            <a
+              href="https://yash-munshi.vercel.app/"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="group flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-sap-300 transition hover:text-sap-50"
+              aria-label="Portfolio"
+            >
+              <Globe size={14} className="transition group-hover:scale-110" />
+              <span className="hidden sm:inline">Portfolio</span>
+            </a>
+            <a
+              href="https://www.linkedin.com/in/yash-munshi-a0408b337/"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="group flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-sap-300 transition hover:text-sap-50"
+              aria-label="LinkedIn"
+            >
+              <Linkedin size={14} className="transition group-hover:scale-110" />
+              <span className="hidden sm:inline">LinkedIn</span>
+            </a>
+            <a
+              href="https://github.com/YashIsTheBest247"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="group flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-sap-300 transition hover:text-sap-50"
+              aria-label="GitHub"
+            >
+              <Github size={14} className="transition group-hover:scale-110" />
+              <span className="hidden sm:inline">GitHub</span>
+            </a>
+          </div>
         </div>
       </footer>
     </main>
