@@ -92,6 +92,97 @@ def strip_pdftex_only_directives(latex: str) -> str:
     return _PDFTEX_DIRECTIVES.sub("", latex)
 
 
+# ── Bold-stripper: undo LLM "keyword highlighting" inside bullet content ───
+
+_BULLET_COMMANDS = ("resumeItem", "resumeSubItem")
+
+
+def _find_matching_brace(text: str, start: int) -> int:
+    """Given index of `{`, return the index of the matching `}` (or -1)."""
+    if start >= len(text) or text[start] != "{":
+        return -1
+    depth = 0
+    for j in range(start, len(text)):
+        if text[j] == "{":
+            depth += 1
+        elif text[j] == "}":
+            depth -= 1
+            if depth == 0:
+                return j
+    return -1
+
+
+def _strip_textbf_one_level(text: str) -> str:
+    r"""`\textbf{X}` → `X`, applied until stable (handles nested wrappers)."""
+    pattern = re.compile(r"\\textbf\{([^{}]*)\}")
+    prev = None
+    while prev != text:
+        prev = text
+        text = pattern.sub(r"\1", text)
+    return text
+
+
+def strip_added_bolds(latex: str) -> str:
+    r"""Remove \\textbf{...} wrappers from inside bullet bodies + skill values.
+
+    The LLM keeps adding \\textbf{} around random keywords inside bullets
+    ("Developed \\textbf{Python back-end} REST APIs") even though the prompt
+    forbids it. Structural bolds — job titles in \\resumeSubheading, project
+    names in \\resumeProjectHeading, skill category labels like
+    \\textbf{Languages}{...} — sit OUTSIDE the bodies we scan, so they stay.
+
+    Cleans two patterns:
+      1. \\resumeItem{ ... \\textbf{X} ... }                  → strip
+      2. \\textbf{Category}{: ... \\textbf{Y} ... }            → strip Y only
+    """
+    # Pattern 1 — bullet commands
+    for macro in _BULLET_COMMANDS:
+        open_marker = f"\\{macro}{{"
+        out_parts: list[str] = []
+        last = 0
+        i = 0
+        while True:
+            idx = latex.find(open_marker, i)
+            if idx == -1:
+                break
+            body_start = idx + len(open_marker) - 1  # position of `{`
+            end = _find_matching_brace(latex, body_start)
+            if end == -1:
+                i = idx + len(open_marker)
+                continue
+            out_parts.append(latex[last:body_start + 1])
+            out_parts.append(_strip_textbf_one_level(latex[body_start + 1:end]))
+            out_parts.append("}")
+            last = end + 1
+            i = end + 1
+        if out_parts:
+            out_parts.append(latex[last:])
+            latex = "".join(out_parts)
+
+    # Pattern 2 — skill value lists: \textbf{X}{: ...}
+    out_parts2: list[str] = []
+    last = 0
+    textbf_pat = re.compile(r"\\textbf\{[^{}]*\}\{")
+    for m in textbf_pat.finditer(latex):
+        value_start = m.end() - 1  # position of `{` of the value group
+        # Only intervene when the value group starts with ":" — that's the
+        # skill-line pattern. Other uses of \textbf{X}{Y} are left alone.
+        if value_start + 1 >= len(latex) or latex[value_start + 1] != ":":
+            continue
+        end = _find_matching_brace(latex, value_start)
+        if end == -1:
+            continue
+        out_parts2.append(latex[last:value_start + 1])
+        out_parts2.append(_strip_textbf_one_level(latex[value_start + 1:end]))
+        out_parts2.append("}")
+        last = end + 1
+    if out_parts2:
+        out_parts2.append(latex[last:])
+        latex = "".join(out_parts2)
+
+    return latex
+
+
 _DOCCLASS_FONTSIZE = re.compile(
     r"(\\documentclass\[[^\]]*?)\b(11|12)pt\b"
 )
@@ -127,13 +218,14 @@ def sanitize_for_tectonic(latex: str, *, shrink: bool = False) -> str:
     sees crash-triggering constructs) and the LLM output (in case the LLM
     re-introduced them despite preserve rules).
 
-    ``shrink=True`` additionally applies one-page-fit adjustments (font size
-    and textheight). Only enable this for the FINAL compile, not the pre-LLM
-    sanitize — otherwise the LLM might "preserve" the 10pt and we lose info.
+    ``shrink=True`` additionally applies one-page-fit adjustments AND strips
+    the LLM-added \\textbf{} from inside bullets. Only enable this for the
+    FINAL compile — pre-LLM sanitize should keep the original's bolds intact.
     """
     latex = neutralize_fontawesome(latex)
     latex = strip_pdftex_only_directives(latex)
     latex = fix_command_environment_confusion(latex)
     if shrink:
+        latex = strip_added_bolds(latex)
         latex = shrink_to_fit(latex)
     return latex

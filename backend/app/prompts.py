@@ -32,9 +32,22 @@ ABSOLUTE RULES — violations break the build:
    - Each rewritten bullet should be roughly the same length as the original (a few words longer is fine).
    - When adding a keyword, strip filler in the same bullet: drop "demonstrating strong", "showcasing", "leveraging", "crucial for", "to derive insights from", "enabling", "providing", "in order to", "with the ability to". These add length without ATS value.
 
-7. ZERO NEW EMPHASIS — do not add bold, italic, underline, or color:
+7. ZERO NEW EMPHASIS — do not add bold, italic, underline, or color. This rule gets violated frequently; treat it as a hard constraint:
    - NEVER wrap keywords in \\textbf{}, \\emph{}, \\textit{}, \\underline{}, or \\color{} that wasn't already there.
-   - Only \\textbf / \\textit that already existed in the original (job titles, company names) stays.
+   - Only \\textbf / \\textit that already existed in the original (job titles, company names, project names, skill category labels) stays.
+
+   Concrete BAD vs GOOD (real violations from previous runs):
+
+     BAD:  \\resumeItem{Developed \\textbf{Python back-end} REST API endpoints using \\textbf{FastAPI}}
+     GOOD: \\resumeItem{Developed Python back-end REST API endpoints using FastAPI}
+
+     BAD:  \\resumeItem{Built an \\textbf{event-driven automation engine} using Celery and Redis}
+     GOOD: \\resumeItem{Built an event-driven automation engine using Celery and Redis}
+
+     BAD:  \\textbf{Developer Tools}{: GitHub, Git, Docker, \\textbf{Debugging Tools}, \\textbf{Deployment Tools}}
+     GOOD: \\textbf{Developer Tools}{: GitHub, Git, Docker, Debugging Tools, Deployment Tools}
+
+   The \\textbf{Developer Tools} before the colon STAYS because it's a category label already bold in the original. Everything AFTER the colon must be plain text — including keywords you've just added.
 
 8. KEEP IT VALID LATEX. Every brace, environment, and command must compile under XeLaTeX / tectonic. Escape special characters (%, &, _, #, $) when they appear in plain prose. Custom commands like \\resumeItemListStart / \\resumeItemListEnd are COMMANDS, not environments — never write \\end{resumeItemListStart}; write \\resumeItemListEnd instead.
 

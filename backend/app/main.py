@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .config import get_settings
-from .routers import tailor
+from .routers import search, tailor
 
 # Hook into uvicorn's pre-configured logger so our messages actually appear
 # in the running terminal (a fresh logging.getLogger() without a handler is
@@ -48,6 +48,7 @@ async def validation_handler(request: Request, exc: RequestValidationError) -> J
 
 
 app.include_router(tailor.router, prefix="/api")
+app.include_router(search.router, prefix="/api")
 
 
 @app.get("/api/health")
