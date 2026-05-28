@@ -56,7 +56,6 @@ If you don't want the blueprint:
    - `GEMINI_MODEL` = `gemini-2.5-flash`
    - `CORS_ORIGINS` = `https://YOUR-VERCEL-PROJECT.vercel.app` (update after step 3)
    - `TECTONIC_BIN` = `tectonic`
-   - `RAPIDAPI_KEY` = (optional) your JSearch key — see "Enabling paid job sources" below
 
 ### Verify
 
@@ -123,29 +122,15 @@ If you see `503 LLM` errors in the backend logs:
 
 ---
 
-## 5.5 — Enabling paid job sources (optional)
+## 5.5 — Searching LinkedIn / Indeed / Glassdoor / Wellfound / Naukri / Internshala
 
-Out of the box the search page pulls from ~10 free Greenhouse + Lever boards. To
-also pull from **LinkedIn, Indeed, Glassdoor, ZipRecruiter** in the same query,
-add a JSearch (RapidAPI) key:
+These platforms don't offer free APIs, so STRIDE doesn't fetch them server-side.
+Instead, the `/search` page's **"More job sites"** section renders deep-link
+buttons that open each platform's pre-filled search results in a new tab. You
+browse there, copy any JD, paste it into the Tailor page (your saved default
+resume is one click away).
 
-1. Sign up at <https://rapidapi.com> (free).
-2. Go to <https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch> → click **Subscribe to Test**.
-3. Choose a plan:
-   - **Basic (free)** — 100 requests/month. Enough to try it.
-   - **Pro $30/mo** — 10,000 requests/month. Each `/api/search-jobs` call = 1 request.
-4. From the JSearch page, copy the **X-RapidAPI-Key** value at the top.
-5. On Render → **stride-backend** → **Environment** → add:
-   ```
-   RAPIDAPI_KEY=<your key>
-   ```
-6. Service auto-restarts. Open `/search` on the frontend — results now include
-   LinkedIn/Indeed/Glassdoor postings alongside the Greenhouse/Lever ones, with
-   the source name on each card (e.g. `linkedin`, `indeed`, `glassdoor`).
-
-**Naukri, Wellfound, AngelList**: no clean public API. Adding them would require
-per-site headless browser scrapers (one-off Apify actors at ~$0.01/run) — happy
-to wire up later if needed.
+Totally free, totally fair-use — no API keys, no ToS issues.
 
 ---
 

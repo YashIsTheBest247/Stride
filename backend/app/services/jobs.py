@@ -1,40 +1,79 @@
-"""Fetch + filter job postings.
+"""Fetch + filter job postings from free public board APIs.
 
-Sources (each fetcher is independent; missing API keys are silently skipped):
-  - Greenhouse public boards          (free, see app/data/companies.py)
-  - Lever public boards               (free, see app/data/companies.py)
-  - JSearch on RapidAPI               (paid; aggregates LinkedIn + Indeed +
-                                       Glassdoor + ZipRecruiter)
+Sources:
+  - Greenhouse public boards (see app/data/companies.py)
+  - Lever public boards      (see app/data/companies.py)
 
-Pipeline:
-  fetch_all_jobs(role, location, internship_only) → list[Job]
-  filter_jobs(jobs, role, location, internship_only) → list[Job]   (exact-token filter)
-
-No scoring or ranking — every job that matches the hard filters is returned,
-sorted by posted_at desc (newest first) when available, then by company name.
+For LinkedIn / Indeed / Glassdoor / Wellfound / Naukri / Internshala the
+frontend renders deep-link buttons that open each platform's pre-filled
+search page in a new tab (no API, no scraping, no paid keys required).
 """
 from __future__ import annotations
 
 import asyncio
 import logging
 import re
+import time
 from dataclasses import dataclass
 from html import unescape
 
 import httpx
 
 from ..data.companies import COMPANIES, Company
-from .jobs_jsearch import fetch_jsearch
 
 logger = logging.getLogger("uvicorn.error")
 
-_TIMEOUT = httpx.Timeout(15.0, connect=5.0)
+_TIMEOUT = httpx.Timeout(8.0, connect=4.0)
 _USER_AGENT = "stride-jobs/0.1 (+https://github.com/YashIsTheBest247/Stride)"
+
+# In-memory cache for the company boards fetch. ~3-5 MB of JSON from 10 boards
+# across the US is the bottleneck on every search; caching for 10 minutes
+# means only the first search per window is slow.
+_BOARDS_CACHE: dict[str, list[Job] | float] = {"jobs": [], "fetched_at": 0.0}
+_BOARDS_TTL_SEC = 600  # 10 minutes
 _TAG_RE = re.compile(r"<[^>]+>")
 _WS_RE = re.compile(r"\s+")
 _WORD_RE = re.compile(r"[A-Za-z][A-Za-z0-9+#.\-]+")
 
 _INTERN_TOKENS = {"intern", "interns", "internship", "internships"}
+
+# CSE / tech keyword bag — drives:
+#   1. detecting when the user's query intent is tech (so we know to filter
+#      out Marketing/Sales/Real Estate noise from Internshala)
+#   2. softer role matching for Internshala — titles like "Software
+#      Development" should match a "python" query because they're tech-adjacent
+_TECH_KEYWORDS = {
+    # broad
+    "software", "developer", "development", "engineer", "engineering",
+    "programmer", "programming", "coding", "tech", "technology", "it",
+    # web + mobile
+    "web", "frontend", "backend", "fullstack", "full-stack", "mobile",
+    "android", "ios", "flutter", "swift", "kotlin",
+    # languages
+    "python", "java", "javascript", "typescript", "c", "c++", "go", "rust",
+    "ruby", "php", "scala", "kotlin",
+    # frameworks
+    "react", "vue", "angular", "node", "django", "flask", "fastapi",
+    "spring", "rails", "express", "nextjs", "next.js",
+    # data / ai (note: avoid "learning"/"analyst" alone — match too many
+    # non-tech roles like "L&D Intern", "Financial Analyst")
+    "data", "ml", "ai", "machine", "analytics", "scientist", "nlp",
+    # infra
+    "devops", "cloud", "aws", "azure", "gcp", "docker", "kubernetes",
+    "infrastructure", "sre",
+    # other tech
+    "qa", "testing", "automation", "cybersecurity", "security",
+    "blockchain", "game", "embedded", "iot", "robotics", "database",
+    "sql", "nosql",
+}
+
+
+def _is_tech_role(title: str) -> bool:
+    return bool(_tokenize(title) & _TECH_KEYWORDS)
+
+
+def _user_wants_tech(role_tokens: set[str]) -> bool:
+    return bool(role_tokens & _TECH_KEYWORDS)
 
 
 @dataclass
@@ -165,6 +204,16 @@ async def _fetch_lever(client: httpx.AsyncClient, c: Company) -> list[Job]:
 
 
 async def _fetch_company_boards() -> list[Job]:
+    """Fetch all configured boards concurrently. Cached for 10 min so only
+    the first call per window pays the network cost."""
+    now = time.time()
+    cached_jobs = _BOARDS_CACHE["jobs"]
+    cached_at = _BOARDS_CACHE["fetched_at"]
+    if isinstance(cached_jobs, list) and isinstance(cached_at, float) \
+       and cached_jobs and (now - cached_at) < _BOARDS_TTL_SEC:
+        logger.info("[jobs] boards cache hit (age %.0fs, %d jobs)", now - cached_at, len(cached_jobs))
+        return cached_jobs
+
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         tasks = []
         for c in COMPANIES:
@@ -177,38 +226,67 @@ async def _fetch_company_boards() -> list[Job]:
     for result in results:
         if isinstance(result, list):
             out.extend(result)
+
+    _BOARDS_CACHE["jobs"] = out
+    _BOARDS_CACHE["fetched_at"] = time.time()
+    logger.info("[jobs] boards cache refreshed (%d jobs)", len(out))
     return out
 
 
-async def _fetch_jsearch_jobs(role: str, location: str, internship_only: bool) -> list[Job]:
-    # num_pages=2 → ~20 results per search, costs 2 RapidAPI credits.
-    # On the free tier (100/mo) that's 50 searches; on Pro (10k) it's 5000.
-    raw = await fetch_jsearch(role, location, internship_only=internship_only, num_pages=2)
-    return [Job(**r) for r in raw]
-
-
 async def fetch_all_jobs(role: str = "", location: str = "", internship_only: bool = False) -> list[Job]:
-    """Fetch every configured source concurrently. JSearch is queried with the
-    user's filters server-side; company boards return everything and we filter
-    client-side."""
-    boards_task = _fetch_company_boards()
-    jsearch_task = _fetch_jsearch_jobs(role, location, internship_only)
-    boards, jsearch = await asyncio.gather(boards_task, jsearch_task)
+    """Fetch every free source concurrently:
+       - Company boards (Greenhouse + Lever) — fetched in full, filtered client-side
+       - Internshala — queried with role/location
 
-    # JSearch first — pre-filtered by the aggregator with the user's exact
-    # query, so those are the most relevant results.
-    all_jobs = jsearch + boards
+    Naukri/LinkedIn/Indeed/Glassdoor render listings via client-side JS so
+    `httpx + bs4` returns an empty SPA shell. Those use the deep-link buttons
+    on the frontend instead.
+    """
+    _ = internship_only  # used by Internshala internally via role/location only
+    from .jobs_internshala import fetch_internshala  # lazy: avoids import cycle
+
+    boards, internshala = await asyncio.gather(
+        _fetch_company_boards(),
+        fetch_internshala(role, location),
+    )
+    all_jobs = boards + internshala
     logger.info(
-        "[jobs] fetched %d total: %d jsearch + %d boards (%d companies)",
-        len(all_jobs), len(jsearch), len(boards), len(COMPANIES),
+        "[jobs] fetched %d total: %d boards (%d companies) + %d internshala",
+        len(all_jobs), len(boards), len(COMPANIES), len(internshala),
     )
     return all_jobs
 
 
 # ── Filtering (no scoring) ───────────────────────────────────────────────────
 
-_BOARD_SOURCES = {"greenhouse", "lever"}
 _MIN_RESULTS_BEFORE_RELAX = 10
+
+# When the user types "remote" / "wfh" / etc., these substrings in the job's
+# location field count as a match too (Internshala says "Work from home",
+# Greenhouse says "Remote - US", etc.).
+_REMOTE_QUERY_ALIASES = {"remote", "wfh", "anywhere", "work-from-home"}
+_REMOTE_LOCATION_HINTS = ("remote", "work from home", "wfh", "anywhere")
+
+
+def _location_matches(
+    loc_tokens: set[str],
+    job_location_lower: str,
+    location_pool: set[str],
+) -> bool:
+    """True if the job's location satisfies the user's location filter.
+
+    - Empty query → always match
+    - User typed remote/wfh → STRICT: only match if the job's location FIELD
+      explicitly mentions remote/wfh/anywhere. We don't accept random
+      mentions of "remote" buried in the JD (e.g. "remote-first culture")
+      because those are usually not actually remote roles.
+    - Otherwise → standard token overlap against the wider location pool.
+    """
+    if not loc_tokens:
+        return True
+    if loc_tokens & _REMOTE_QUERY_ALIASES:
+        return any(h in job_location_lower for h in _REMOTE_LOCATION_HINTS)
+    return bool(loc_tokens & location_pool)
 
 
 def _passes(
@@ -218,23 +296,48 @@ def _passes(
     location_tokens: set[str],
     internship_only: bool,
 ) -> bool:
-    """Single-job hard filter. JSearch results pass through unconditionally
-    since they were already filtered server-side by the aggregator."""
-    if job.source not in _BOARD_SOURCES:
-        return True
+    """Single-job hard filter, applied to every source.
 
+    Internshala is treated as a special case:
+      - Its URL falls back to general listings when an exact category isn't
+        found, so we re-verify everything client-side
+      - When the user's role signals tech intent (python, software, react…),
+        we drop Internshala jobs whose title isn't tech-relevant — otherwise
+        Marketing/Sales/Real Estate dominate the panel for CSE students
+      - We also accept *any* tech-keyword overlap as a role match for
+        Internshala (so a "python" query matches "Software Development" too),
+        because Internshala titles rarely mention specific languages
+    """
     title_tokens = _tokenize(job.role)
     location_field_tokens = _tokenize(job.location)
-    location_pool = location_field_tokens | _tokenize(job.description[:1500])
-    all_tokens = title_tokens | location_field_tokens | _tokenize(job.description)
+    description_tokens = _tokenize(job.description[:1500]) if job.description else set()
+    location_pool = location_field_tokens | description_tokens
+    all_tokens = title_tokens | location_field_tokens | description_tokens
 
     if internship_only and not (title_tokens & _INTERN_TOKENS):
         return False
-    if role_tokens and not (role_tokens & all_tokens):
-        return False
-    if location_tokens and not (location_tokens & location_pool):
+
+    # Role match — for Internshala specifically, a generic tech title
+    # ("Software Development") counts as matching a specific tech query
+    # ("python") because Internshala titles rarely mention the stack.
+    # (Non-tech Internshala jobs are already stripped in filter_jobs.)
+    if role_tokens:
+        role_match = bool(role_tokens & all_tokens)
+        if not role_match and job.source == "internshala" and _user_wants_tech(role_tokens):
+            role_match = _is_tech_role(job.role)
+        if not role_match:
+            return False
+
+    if not _location_matches(location_tokens, (job.location or "").lower(), location_pool):
         return False
     return True
+
+
+def _matches_source(job: Job, source_lower: str) -> bool:
+    """Substring match against job.source. Empty source = pass."""
+    if not source_lower:
+        return True
+    return source_lower in (job.source or "").lower()
 
 
 def filter_jobs(
@@ -243,6 +346,7 @@ def filter_jobs(
     role: str = "",
     location: str = "",
     internship_only: bool = False,
+    source: str = "",
     top_n: int = 100,
 ) -> list[Job]:
     """Return matching jobs with progressive relaxation.
@@ -260,25 +364,72 @@ def filter_jobs(
     """
     role_tokens = _tokenize(role)
     location_tokens = _tokenize(location)
+    source_lower = source.strip().lower()
+    # Detect tech intent ONCE from the original role string. The relaxation
+    # passes (drop location, drop role) lose role_tokens, so we'd otherwise
+    # let non-tech Internshala jobs back in via pass 3.
+    user_wants_tech = _user_wants_tech(role_tokens)
+
+    # Apply source filter UP FRONT — if the user picked "linkedin" they don't
+    # want any other publisher's results, even with relaxation.
+    pool = [j for j in jobs if _matches_source(j, source_lower)] if source_lower else jobs
+
+    # CSE pre-filter: when the user signals tech intent, strip Internshala
+    # Marketing / Sales / Finance / Real Estate from the pool BEFORE any
+    # pass runs — they shouldn't sneak in via the drop-role fallback.
+    if user_wants_tech:
+        pool = [
+            j for j in pool
+            if not (j.source == "internshala" and not _is_tech_role(j.role))
+        ]
 
     def collect(roles: set[str], locs: set[str]) -> list[Job]:
-        return [j for j in jobs if _passes(
+        return [j for j in pool if _passes(
             j, role_tokens=roles, location_tokens=locs, internship_only=internship_only,
         )]
 
+    # Priority-sort WITHIN each pass and concatenate. This way strict matches
+    # (e.g. the actual remote internships) always sit above relaxed matches
+    # (no-location, no-role fallbacks). Inside each tier, stipend-bearing jobs
+    # with sensible duration float to the top.
+    def sorted_pass(jobs_in_pass: list[Job]) -> list[Job]:
+        return sorted(jobs_in_pass, key=_priority_key, reverse=True)
+
     # Pass 1 — strict
-    out = collect(role_tokens, location_tokens)
+    out = sorted_pass(collect(role_tokens, location_tokens))
 
     # Pass 2 — drop location if we don't have enough hits
     if len(out) < _MIN_RESULTS_BEFORE_RELAX and location_tokens:
         seen = {(j.url or j.role) for j in out}
-        pass2 = collect(role_tokens, set())
-        out.extend(j for j in pass2 if (j.url or j.role) not in seen)
+        pass2_new = [j for j in collect(role_tokens, set()) if (j.url or j.role) not in seen]
+        out.extend(sorted_pass(pass2_new))
 
     # Pass 3 — drop role too
     if len(out) < _MIN_RESULTS_BEFORE_RELAX and role_tokens:
         seen = {(j.url or j.role) for j in out}
-        pass3 = collect(set(), set())
-        out.extend(j for j in pass3 if (j.url or j.role) not in seen)
+        pass3_new = [j for j in collect(set(), set()) if (j.url or j.role) not in seen]
+        out.extend(sorted_pass(pass3_new))
 
     return out[:top_n]
+
+
+_MONTH_RE = re.compile(r"(\d+)\s*month", re.IGNORECASE)
+
+
+def _priority_key(j: Job) -> int:
+    """Higher score = ranked higher.
+
+    +3 if a stipend is listed (most valuable signal for the user)
+    +2 if duration is in the typical 1-6 month internship range
+    +1 if a duration is listed at all (any length)
+    """
+    score = 0
+    if j.stipend.strip():
+        score += 3
+    duration_lower = (j.duration or "").lower()
+    if duration_lower:
+        score += 1
+        m = _MONTH_RE.search(duration_lower)
+        if m and 1 <= int(m.group(1)) <= 6:
+            score += 2
+    return score

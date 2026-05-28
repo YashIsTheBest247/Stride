@@ -225,14 +225,17 @@ export default function AppPage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-3">
-                    <button onClick={downloadPdf} className="btn-cta">
+                  <div className="flex w-full flex-col items-stretch gap-2 lg:w-auto lg:min-w-[200px]">
+                    <button
+                      onClick={downloadPdf}
+                      className="btn-cta !justify-center whitespace-nowrap"
+                    >
                       <Download size={14} />
                       <span>Download PDF</span>
                     </button>
                     <button
                       onClick={resetAll}
-                      className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/[0.06] px-5 py-2.5 text-xs font-bold uppercase tracking-[0.18em] text-white transition hover:border-white/45 hover:bg-white/10 active:scale-[0.97]"
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-white/25 bg-white/[0.06] px-5 py-2.5 text-xs font-bold uppercase tracking-[0.18em] text-white transition hover:border-white/45 hover:bg-white/10 active:scale-[0.97]"
                     >
                       <ArrowLeft size={12} />
                       <span>Start over</span>

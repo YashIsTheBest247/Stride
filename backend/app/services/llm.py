@@ -68,6 +68,36 @@ def _sanitize_segment(value: str, fallback: str) -> str:
     return cleaned or fallback
 
 
+# Trailing tokens we strip from the role to keep the filename short. The user
+# wants the *position* in the filename, not employment-type fluff.
+_ROLE_TRAIL_NOISE = (
+    "internship", "interns", "intern",
+    "part_time", "parttime", "part",
+    "full_time", "fulltime",
+    "contract", "contractor", "freelance",
+    "temporary", "temp",
+    "remote", "onsite", "hybrid",
+    "summer", "winter", "spring", "fall",
+)
+
+
+def _clean_role_for_filename(role_segment: str) -> str:
+    """Strip Internship/Part_Time/Intern/etc. suffix tokens from the role.
+
+    Operates on the already-sanitized Title_Case_With_Underscores form.
+    Strips one trailing noise token at a time until none remain.
+    """
+    parts = [p for p in role_segment.split("_") if p]
+    while parts and parts[-1].lower() in _ROLE_TRAIL_NOISE:
+        parts.pop()
+    # Also handle compound trailing tokens like "Part" + "Time" left as
+    # separate parts after one strip round
+    while len(parts) >= 2 and (parts[-2].lower() + "_" + parts[-1].lower()) in _ROLE_TRAIL_NOISE:
+        parts.pop()
+        parts.pop()
+    return "_".join(parts) if parts else role_segment
+
+
 def _parse_response(raw: str) -> TailorResult:
     latex_match = _LATEX_BLOCK.search(raw)
     if not latex_match:
@@ -86,11 +116,12 @@ def _parse_response(raw: str) -> TailorResult:
         raise ValueError(f"Could not parse metadata JSON: {exc}") from exc
 
     raw_name = meta.get("full_name") or meta.get("first_name") or ""
+    role_clean = _clean_role_for_filename(_sanitize_segment(meta.get("role", ""), "Role"))
     return TailorResult(
         latex=latex,
         full_name=_sanitize_segment(raw_name, "Candidate"),
         company=_sanitize_segment(meta.get("company", ""), "Company"),
-        role=_sanitize_segment(meta.get("role", ""), "Role"),
+        role=role_clean or "Role",
     )
 
 
@@ -142,7 +173,9 @@ def tailor_resume(latex_source: str, job_description: str) -> TailorResult:
         model=settings.gemini_model,
         contents=build_user_prompt(latex_source, job_description),
         system_instruction=SYSTEM_PROMPT,
-        temperature=0.2,
+        # Higher temp than the repair pass — we WANT creative rewrites that
+        # weave JD keywords into existing bullets, not a verbatim echo.
+        temperature=0.45,
     )
     raw = (response.text or "").strip()
     if not raw:

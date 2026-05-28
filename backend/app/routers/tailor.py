@@ -113,6 +113,22 @@ async def tailor(payload: TailorRequest):
     else:
         logger.info("[STRIDE /tailor] bullet count preserved: %d", in_bullets)
 
+    # Sanity check: did the LLM actually rewrite anything? If the output is
+    # basically the input verbatim, the user got a useless PDF.
+    in_chars = set(sanitized_input)  # cheap presence check; below is the real diff
+    _ = in_chars  # unused, kept for future use
+    changed_chars = sum(1 for a, b in zip(sanitized_input, result.latex) if a != b)
+    longer = max(len(sanitized_input), len(result.latex))
+    diff_ratio = changed_chars / longer if longer else 0
+    if diff_ratio < 0.05:
+        logger.warning(
+            "[STRIDE /tailor] LOW DIFF: only %.1f%% of chars changed — LLM may have echoed input. "
+            "Check the prompt: keyword injection isn't happening.",
+            diff_ratio * 100,
+        )
+    else:
+        logger.info("[STRIDE /tailor] char-diff vs input: %.1f%%", diff_ratio * 100)
+
     # Defence-in-depth: sanitize the LLM output too, in case it added back
     # any crash-triggering packages despite the preserve-rules in the prompt.
     # `shrink=True` forces the final document to 10pt + extra textheight so

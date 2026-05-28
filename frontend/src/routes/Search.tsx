@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Banknote,
   BookmarkPlus,
   Briefcase,
+  Check,
+  ChevronDown,
   Clock4,
   ExternalLink,
   Loader2,
@@ -24,6 +26,7 @@ export default function SearchPage() {
   const [role, setRole] = useState("");
   const [location, setLocation] = useState("");
   const [internshipOnly, setInternshipOnly] = useState(true);
+  const [source, setSource] = useState("");        // "" = all sources
   const [resume, setResume] = useState("");
 
   const [results, setResults] = useState<JobResult[]>([]);
@@ -67,6 +70,7 @@ export default function SearchPage() {
         role,
         location,
         internshipOnly,
+        source,
         topN: 50,
       });
       setResults(data);
@@ -143,6 +147,23 @@ export default function SearchPage() {
                   className="w-full bg-transparent text-sm text-sap-50 placeholder-sap-400 outline-none"
                 />
               </Field>
+
+              <div>
+                <label className="eyebrow text-sap-400">Source</label>
+                <Dropdown
+                  value={source}
+                  onChange={setSource}
+                  options={[
+                    { value: "", label: "All free sources" },
+                    { value: "greenhouse", label: "Greenhouse only" },
+                    { value: "lever", label: "Lever only" },
+                    { value: "internshala", label: "Internshala only" },
+                  ]}
+                />
+                <p className="mt-1.5 text-[10px] text-sap-400">
+                  For LinkedIn / Indeed / Glassdoor / Wellfound / Naukri — use the "More job sites" buttons below (those render listings via JS, so they can't be scraped server-side without a headless browser).
+                </p>
+              </div>
 
               <label className="flex cursor-pointer items-center gap-3 rounded-2xl bg-black/[0.03] px-4 py-3 ring-1 ring-black/[0.06]">
                 <input
@@ -231,8 +252,222 @@ export default function SearchPage() {
             />
           )}
         </div>
+
+        {/* MORE JOB SITES — free deep-link buttons */}
+        <div className="mx-auto mt-10 max-w-[1400px]">
+          <MoreJobSites role={role} location={location} internshipOnly={internshipOnly} />
+        </div>
       </section>
     </main>
+  );
+}
+
+// ── Themed dropdown (replaces native <select>) ──────────────────────────────
+
+interface DropdownOption<T extends string> {
+  value: T;
+  label: string;
+}
+
+function Dropdown<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: DropdownOption<T>[];
+  onChange: (v: T) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on click outside + Escape.
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const current = options.find((o) => o.value === value);
+
+  return (
+    <div ref={ref} className="relative mt-2">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`flex w-full items-center justify-between gap-3 rounded-2xl bg-black/[0.04] px-4 py-3 text-left text-sm text-sap-50 ring-1 transition ${
+          open ? "ring-black/30" : "ring-black/[0.08] hover:ring-black/20"
+        }`}
+      >
+        <span>{current?.label ?? "Select…"}</span>
+        <ChevronDown
+          size={14}
+          className={`text-sap-400 transition ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl bg-[#f0e8d3] shadow-[0_18px_50px_-18px_rgba(0,0,0,0.25)] ring-1 ring-black/15">
+          {options.map((opt) => {
+            const active = opt.value === value;
+            return (
+              <button
+                type="button"
+                key={opt.value || "default"}
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition ${
+                  active
+                    ? "bg-black/[0.08] text-sap-50"
+                    : "text-sap-200 hover:bg-black/[0.05] hover:text-sap-50"
+                }`}
+              >
+                <span>{opt.label}</span>
+                {active && <Check size={12} className="text-sap-50" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ── More job sites (free deep-link section) ─────────────────────────────────
+
+interface Platform {
+  name: string;
+  hint: string;
+  build: (role: string, location: string, internshipOnly: boolean) => string;
+}
+
+const PLATFORMS: Platform[] = [
+  {
+    name: "LinkedIn",
+    hint: "Largest network. Internship + remote filters in their UI.",
+    build: (role, loc, intern) => {
+      const q = `${role}${intern ? " intern" : ""}`.trim();
+      const params = new URLSearchParams();
+      if (q) params.set("keywords", q);
+      if (loc) params.set("location", loc);
+      return `https://www.linkedin.com/jobs/search/?${params.toString()}`;
+    },
+  },
+  {
+    name: "Indeed",
+    hint: "US + global postings, rich filters.",
+    build: (role, loc, intern) => {
+      const q = `${role}${intern ? " intern" : ""}`.trim();
+      const params = new URLSearchParams();
+      if (q) params.set("q", q);
+      if (loc) params.set("l", loc);
+      return `https://www.indeed.com/jobs?${params.toString()}`;
+    },
+  },
+  {
+    name: "Glassdoor",
+    hint: "Salary insight + reviews next to listings.",
+    build: (role, loc, intern) => {
+      const q = `${role}${intern ? " intern" : ""}`.trim();
+      const params = new URLSearchParams();
+      if (q) params.set("sc.keyword", q);
+      if (loc) params.set("locKeyword", loc);
+      return `https://www.glassdoor.com/Job/jobs.htm?${params.toString()}`;
+    },
+  },
+  {
+    name: "Wellfound",
+    hint: "Startup + early-stage roles. Was AngelList Talent.",
+    build: (role, loc) => {
+      const params = new URLSearchParams();
+      if (role) params.set("role", role);
+      if (loc) params.set("location", loc);
+      return `https://wellfound.com/jobs?${params.toString()}`;
+    },
+  },
+  {
+    name: "Naukri",
+    hint: "India's largest job board.",
+    build: (role, loc, intern) => {
+      const slug = `${role}${intern ? " internship" : ""}`.trim().toLowerCase().replace(/\s+/g, "-");
+      const locSlug = loc.trim().toLowerCase().replace(/\s+/g, "-");
+      if (!slug) return "https://www.naukri.com/";
+      return locSlug
+        ? `https://www.naukri.com/${slug}-jobs-in-${locSlug}`
+        : `https://www.naukri.com/${slug}-jobs`;
+    },
+  },
+  {
+    name: "Internshala",
+    hint: "India-focused internships, tech-friendly.",
+    build: (role) => {
+      const slug = role.trim().toLowerCase().replace(/\s+/g, "-");
+      return slug
+        ? `https://internshala.com/internships/${slug}-internship/`
+        : "https://internshala.com/internships/";
+    },
+  },
+];
+
+function MoreJobSites({
+  role,
+  location,
+  internshipOnly,
+}: {
+  role: string;
+  location: string;
+  internshipOnly: boolean;
+}) {
+  return (
+    <section className="panel p-6">
+      <div>
+        <p className="eyebrow text-sap-400">/ More job sites</p>
+        <h2 className="display mt-2 text-2xl text-sap-50">
+          Search elsewhere — <span className="chrome">free.</span>
+        </h2>
+        <p className="mt-2 max-w-2xl text-sm text-sap-300">
+          One click opens each platform's search results pre-filled with your role and
+          location. Copy any JD back into the Tailor page — your saved default resume
+          is ready to go.
+        </p>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {PLATFORMS.map((p) => (
+          <a
+            key={p.name}
+            href={p.build(role, location, internshipOnly)}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="group panel flex items-start justify-between gap-3 p-4 transition hover:border-black/30"
+          >
+            <div className="min-w-0">
+              <p className="display text-base leading-tight text-sap-50">{p.name}</p>
+              <p className="mt-1 text-[11px] leading-snug text-sap-300">{p.hint}</p>
+            </div>
+            <ExternalLink
+              size={14}
+              className="mt-0.5 shrink-0 text-sap-400 transition group-hover:text-sap-50"
+            />
+          </a>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -381,16 +616,22 @@ function JobCard({
 
       {/* Stipend + duration badges — prominent, top of card */}
       {(job.stipend || job.duration) && (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
           {job.stipend && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-sap-900/90 px-2 py-0.5 text-[10px] font-bold text-ink-950 ring-1 ring-black/20">
-              <Banknote size={10} />
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full bg-sap-50 px-3 py-1 text-[11px] font-bold text-ink-950 shadow-sm ring-1 ring-black/30"
+              title="Stipend"
+            >
+              <Banknote size={12} />
               {job.stipend}
             </span>
           )}
           {job.duration && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-black/[0.06] px-2 py-0.5 text-[10px] font-bold text-sap-100 ring-1 ring-black/10">
-              <Clock4 size={10} />
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.06] px-3 py-1 text-[11px] font-bold text-sap-50 ring-1 ring-black/15"
+              title="Duration"
+            >
+              <Clock4 size={12} />
               {job.duration}
             </span>
           )}

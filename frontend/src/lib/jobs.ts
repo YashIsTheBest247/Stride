@@ -17,6 +17,7 @@ export interface SearchOptions {
   role?: string;
   location?: string;
   internshipOnly?: boolean;
+  source?: string;       // "" = all, else "linkedin" | "indeed" | "glassdoor" | "wellfound" | ...
   topN?: number;
 }
 
@@ -28,6 +29,7 @@ export async function searchJobs(opts: SearchOptions): Promise<JobResult[]> {
       role: opts.role ?? "",
       location: opts.location ?? "",
       internship_only: opts.internshipOnly ?? false,
+      source: opts.source ?? "",
       top_n: opts.topN ?? 50,
     }),
   });

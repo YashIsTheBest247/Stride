@@ -71,8 +71,16 @@ def compile_latex_to_pdf(latex_source: str, timeout_sec: int = 120) -> bytes:
             log_file = tmp_path / "resume.log"
             log_tail = ""
             if log_file.exists():
-                log_tail = "\n".join(log_file.read_text(errors="ignore").splitlines()[-40:])
+                log_tail = "\n".join(log_file.read_text(errors="ignore").splitlines()[-80:])
             stderr_tail = (proc.stderr or "").strip()[:500]
+            # Dump the failing .tex to backend/_last_failure.tex so we can
+            # inspect what the LLM (and our post-process) actually produced.
+            # Single file — overwritten each time, no clutter.
+            try:
+                dump = Path(__file__).resolve().parents[2] / "_last_failure.tex"
+                dump.write_text(latex_source, encoding="utf-8")
+            except Exception:
+                pass
             raise LatexCompileError(
                 f"Tectonic failed (exit {proc.returncode}): {stderr_tail}",
                 log_tail=log_tail,

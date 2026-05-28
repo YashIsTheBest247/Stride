@@ -8,11 +8,6 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
 
-    # JSearch (RapidAPI) — paid job aggregator: LinkedIn + Indeed + Glassdoor
-    # + ZipRecruiter in one API. Leave empty to skip this source.
-    # Get a key at https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch
-    rapidapi_key: str = ""
-
     tectonic_bin: str = "tectonic"
 
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
