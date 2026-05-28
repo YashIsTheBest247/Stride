@@ -30,6 +30,34 @@ const STEPS = [
   },
 ];
 
+const HOW_TO_USE = [
+  {
+    n: "01",
+    title: "Save your default resume",
+    body: "On the Tailor page, paste your .tex once and click ★ SAVE. It's stored in your browser — next time, one click reloads it.",
+  },
+  {
+    n: "02",
+    title: "Find roles that match",
+    body: "Open Search, set role + location + Internship-only. Side panel returns live Greenhouse, Lever, and Internshala postings. Use the More Job Sites buttons to open LinkedIn / Indeed / Glassdoor / Wellfound / Naukri in new tabs.",
+  },
+  {
+    n: "03",
+    title: "Tailor a match",
+    body: "Click the Tailor button on any result — the JD auto-fills the tailor with your default resume already loaded. Or paste a JD manually from any other source.",
+  },
+  {
+    n: "04",
+    title: "Generate the PDF",
+    body: "Hit Generate. Gemini rewrites bullets and skills to weave in JD keywords, Tectonic compiles, auto-shrunk to one page. ~15-30 seconds end to end. Downloads as FullName_Role.pdf.",
+  },
+  {
+    n: "05",
+    title: "Apply on the company site",
+    body: "Click Open Posting on any search result to land on the company's actual page, upload the tailored PDF, hit submit. STRIDE never touches the application form — that part stays yours.",
+  },
+];
+
 const AUTO_SCROLL_DELAY_MS = 10000;
 
 export default function Landing() {
@@ -148,6 +176,36 @@ export default function Landing() {
                 </div>
                 <h3 className="display mt-12 text-3xl text-sap-50">{s.title}</h3>
                 <p className="mt-3 text-sm leading-relaxed text-sap-300">{s.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* HOW TO USE */}
+      <section id="howto" className="px-8 pt-12 pb-12">
+        <div className="mx-auto max-w-[1400px]">
+          <div className="mb-8 flex items-end justify-between gap-8">
+            <div>
+              <p className="eyebrow text-sap-200/70">/ How to use</p>
+              <h2 className="display mt-3 text-4xl text-sap-50 md:text-5xl">
+                Five steps. <span className="chrome">Apply ready.</span>
+              </h2>
+            </div>
+            <p className="hidden md:block max-w-md text-sm text-sap-200/55">
+              Save your resume once. After that, every application is paste-or-click then download.
+            </p>
+          </div>
+
+          <div className="grid gap-px overflow-hidden rounded-3xl bg-black/[0.10] md:grid-cols-2 lg:grid-cols-5">
+            {HOW_TO_USE.map((s) => (
+              <div key={s.n} className="bg-ink-950 p-6">
+                <div className="flex items-center justify-between">
+                  <p className="display chrome text-xl">{s.n}</p>
+                  <span className="h-1.5 w-1.5 rounded-full bg-sap-50" />
+                </div>
+                <h3 className="display mt-8 text-xl text-sap-50">{s.title}</h3>
+                <p className="mt-2 text-[12px] leading-relaxed text-sap-300">{s.body}</p>
               </div>
             ))}
           </div>

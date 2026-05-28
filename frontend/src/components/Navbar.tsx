@@ -7,6 +7,7 @@ const SECTIONS = [
   { id: "hero", label: "Home" },
   { id: "intro", label: "Intro" },
   { id: "how", label: "Pipeline" },
+  { id: "howto", label: "How to use" },
 ];
 
 export default function Navbar() {
