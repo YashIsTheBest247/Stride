@@ -7,7 +7,11 @@ from pydantic import BaseModel, Field
 
 from ..services.latex import CompileResult, LatexCompileError, compile_latex_to_pdf
 from ..services.llm import fix_latex_compile_error, tailor_resume
-from ..services.preprocess import sanitize_for_tectonic
+from ..services.preprocess import (
+    MAX_SHRINK_LEVEL,
+    sanitize_for_tectonic,
+    shrink_to_fit,
+)
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -166,29 +170,35 @@ def tailor(payload: TailorRequest):
     # being over-compressed into a sparse page with a big empty bottom.
     finalized = sanitize_for_tectonic(result.latex, finalize=True)
 
+    def _fits_one_page(c: CompileResult) -> bool:
+        # Confidently one page: exactly 1 page AND not overflowing the bottom.
+        # A page == 1 with a big Overfull \vbox is content taller than the
+        # printable area — the tail (e.g. Achievements) gets CLIPPED — so it
+        # does NOT count as fitting.
+        return c.pages == 1 and c.overfull_pt <= _OVERFLOW_PT_THRESHOLD
+
     try:
         compiled = _compile_with_repair(finalized)
-        # Decide whether the natural-size render actually FITS one page. Two
-        # ways it can fail to fit:
-        #   • pages > 1  — it spilled onto a second page.
-        #   • pages == 1 but an Overfull \vbox — content is taller than the
-        #     printable area, so the bottom (e.g. trailing Achievements) is
-        #     CLIPPED even though TeX still calls it one page.
-        # pages == 0 (count unreadable) → shrink as the safe default.
-        # Only when it genuinely fits do we keep natural size (avoids the
-        # over-compressed, sparse-bottom look on short resumes).
-        overflowed = compiled.pages != 1 or compiled.overfull_pt > _OVERFLOW_PT_THRESHOLD
-        if overflowed:
-            logger.info(
-                "[STRIDE /tailor] natural compile doesn't fit (pages=%s, overfull=%.1fpt); applying one-page shrink",
-                compiled.pages or "unknown", compiled.overfull_pt,
-            )
-            shrunk = sanitize_for_tectonic(result.latex, finalize=True, shrink=True)
-            compiled = _compile_with_repair(shrunk)
-            if compiled.pages and compiled.pages > 1:
+        if not _fits_one_page(compiled):
+            # If the page count was unreadable AND we saw no overflow, we can't
+            # measure fit — apply a single gentle shrink as the safe default
+            # rather than escalating blindly.
+            unknown = compiled.pages == 0 and compiled.overfull_pt == 0
+            max_level = 1 if unknown else MAX_SHRINK_LEVEL
+            level = 1
+            while level <= max_level:
+                logger.info(
+                    "[STRIDE /tailor] doesn't fit one page (pages=%s, overfull=%.1fpt); shrink level %d/%d",
+                    compiled.pages or "unknown", compiled.overfull_pt, level, max_level,
+                )
+                compiled = _compile_with_repair(shrink_to_fit(finalized, level=level))
+                if _fits_one_page(compiled):
+                    break
+                level += 1
+            if not _fits_one_page(compiled):
                 logger.warning(
-                    "[STRIDE /tailor] STILL %d pages after shrink — content may be too long",
-                    compiled.pages,
+                    "[STRIDE /tailor] content still overflows after max shrink (pages=%s, overfull=%.1fpt) — resume may be too long",
+                    compiled.pages or "unknown", compiled.overfull_pt,
                 )
         else:
             logger.info("[STRIDE /tailor] natural compile fits one page; no shrink applied")

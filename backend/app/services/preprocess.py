@@ -382,63 +382,61 @@ def fix_redundant_subheading_wrapper(latex: str) -> str:
     )
 
 
+# Match 10/11/12pt so we can also step a doc down to 9pt at the top level.
 _DOCCLASS_FONTSIZE = re.compile(
-    r"(\\documentclass\[[^\]]*?)\b(11|12)pt\b"
+    r"(\\documentclass\[[^\]]*?)\b(10|11|12)pt\b"
 )
 
 
-_SHRINK_MARKER = "% STRIDE-SHRINK-V4"
-_OLD_SHRINK_MARKERS = ("% STRIDE-SHRINK-V2", "% STRIDE-SHRINK-V3")
+_SHRINK_MARKER = "% STRIDE-SHRINK-V5"
+_OLD_SHRINK_MARKERS = (
+    "% STRIDE-SHRINK-V2", "% STRIDE-SHRINK-V3", "% STRIDE-SHRINK-V4",
+)
+
+# Escalating one-page-fit profiles. Each level reduces content HEIGHT more than
+# the last — smaller font and/or tighter line spacing — so a resume that still
+# overflowed at the previous level has another, harder squeeze to try. We vary
+# font + linespread (the levers that actually shrink content) and keep the
+# proven V4 geometry (textheight/​textwidth/margins) constant: expanding
+# textheight further can't help once the text block already fills the page.
+_SHRINK_PROFILES = {
+    1: {"font": 10, "linespread": 0.93},  # gentle (old V4 default)
+    2: {"font": 10, "linespread": 0.88},  # tighter lines
+    3: {"font": 9,  "linespread": 0.90},  # smaller font — last resort
+}
+MAX_SHRINK_LEVEL = max(_SHRINK_PROFILES)
 
 
-def shrink_to_fit(latex: str) -> str:
-    """Force the tailored resume onto one page WITHOUT cropping the header.
+def shrink_to_fit(latex: str, level: int = 1) -> str:
+    """Tighten geometry so the tailored resume fits one page, without cropping.
 
-    V3 used \\addtolength{\\topmargin}{-0.4in} to pull content up, which on
-    some templates pushed the name/contact header above the printable area.
-    V4 fixes that: NO topmargin shift, and the vertical room we still need
-    comes from a moderate textheight expansion + tighter item spacing.
+    ``level`` (1..MAX_SHRINK_LEVEL) selects how hard to squeeze; the caller
+    steps it up only while the page still overflows. Knobs per level come from
+    ``_SHRINK_PROFILES`` (font size + line spacing); the geometry below is the
+    proven V4 set and is constant across levels. NO topmargin shift, so the
+    name/contact header is never pushed above the printable area.
 
-    Net page coverage vs V3:
-        V3 bottom = T_default - 0.4 + (H + 1.2) = T_default + H + 0.8
-        V4 bottom = T_default       + (H + 0.8) = T_default + H + 0.8
-    Same bottom — header is no longer cropped because everything is shifted
-    0.4in down, into the printable area.
-
-    Knobs:
-      1. \\documentclass[..., 11pt|12pt, ...] -> 10pt.
-      2. textheight +0.8in, textwidth +0.4in, side margins -0.2in.
-      3. \\linespread{0.93} + \\itemsep / \\parskip / \\parsep = 0pt so
-         bullet lists don't waste vertical room between items.
-
-    Injected once, right before \\begin{document}. Idempotent — re-runs on
-    already-shrunk .tex are no-ops, and prior V2/V3-marker installs are
-    detected and left alone.
+    Injected once, right before \\begin{document}. Idempotent — a .tex that
+    already carries the marker (or a prior V2-V4 marker) is returned untouched,
+    so re-runs and user-pasted once-shrunk sources don't double-inject.
     """
-    out = _DOCCLASS_FONTSIZE.sub(lambda m: f"{m.group(1)}10pt", latex)
-    if _SHRINK_MARKER in out:
-        return out
-    # If a previous V2/V3 marker is present (e.g. user pasted a once-shrunk
-    # .tex), don't double-inject — return as-is to stay idempotent.
-    if any(m in out for m in _OLD_SHRINK_MARKERS):
+    level = max(1, min(level, MAX_SHRINK_LEVEL))
+    prof = _SHRINK_PROFILES[level]
+    out = _DOCCLASS_FONTSIZE.sub(lambda m: f"{m.group(1)}{prof['font']}pt", latex)
+    if _SHRINK_MARKER in out or any(m in out for m in _OLD_SHRINK_MARKERS):
         return out
     injection = (
-        f"{_SHRINK_MARKER}: tighten geometry so tailored content fits one page\n"
+        f"{_SHRINK_MARKER} (level {level}): tighten geometry so content fits one page\n"
         "\\addtolength{\\textheight}{0.8in}\n"
         "\\addtolength{\\textwidth}{0.4in}\n"
         "\\addtolength{\\oddsidemargin}{-0.2in}\n"
         "\\addtolength{\\evensidemargin}{-0.2in}\n"
-        "\\linespread{0.93}\n"
+        "\\linespread{" + str(prof["linespread"]) + "}\n"
         "\\setlength{\\parskip}{0pt}\n"
         "\\setlength{\\parsep}{0pt}\n"
         "\\setlength{\\itemsep}{0pt}\n"
     )
-    out = out.replace(
-        "\\begin{document}",
-        injection + "\\begin{document}",
-        1,
-    )
-    return out
+    return out.replace("\\begin{document}", injection + "\\begin{document}", 1)
 
 
 def sanitize_for_tectonic(
