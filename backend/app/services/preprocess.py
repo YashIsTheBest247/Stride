@@ -238,6 +238,150 @@ def _wrap_orphan_items_in_section_body(body: str) -> str:
     )
 
 
+# ── Achievement rescue: re-bullet sections the LLM flattened ───────────────
+#
+# `ensure_bullet_wrappers` only saves *orphan `\resumeItem`* calls. But the LLM
+# also (mis)copies the Technical-Skills idiom into Achievements:
+#     \begin{itemize}[leftmargin=.., label={}]
+#       \small{\item{ Line one \\ Line two \\ Line three }}
+#     \end{itemize}
+# That renders flush-left with NO bullet markers (label={} + a single \item).
+# For sections whose TITLE marks them as bullet lists (Achievements, Awards,
+# Leadership, …) and that contain NO `\resumeItem`, we explode the flattened
+# content back into bare `\resumeItem{...}` lines and let
+# `ensure_bullet_wrappers` (run right after) wrap them. Technical-Skills /
+# Coursework sections never match the title test, so their intentional
+# bulletless layout is left untouched.
+
+_ACHIEVEMENT_TITLE_RE = re.compile(
+    r"achiev|extracurric|involve|leadership|award|honou?r"
+    r"|certificat|volunteer|activit|accomplishment",
+    re.IGNORECASE,
+)
+_ITEMIZE_BLOCK_RE = re.compile(
+    r"\\begin\{itemize\}(?:\[[^\]]*\])?(.*?)\\end\{itemize\}", re.DOTALL
+)
+# A LaTeX line break `\\`, optionally with `[4pt]`-style spacing.
+_LINE_BREAK_RE = re.compile(r"\\\\(?:\[[^\]]*\])?")
+# Font-size switches that wrap content but carry no text of their own.
+_SIZE_CMD_RE = re.compile(
+    r"\\(?:small|footnotesize|scriptsize|normalsize|large)\b"
+)
+
+
+def _strip_wrapping_braces(text: str) -> str:
+    """Drop a fully-enclosing ``{...}`` pair (e.g. left over from ``\\small{}``).
+
+    Only strips when the opening brace's match is the final character, so an
+    inline ``\\textbf{X}`` at the end of a line is never broken.
+    """
+    text = text.strip()
+    while text.startswith("{"):
+        end = _find_matching_brace(text, 0)
+        if end == len(text) - 1:
+            text = text[1:end].strip()
+        else:
+            break
+    return text
+
+
+def _explode_items(inner: str) -> list[str]:
+    r"""Turn an itemize body into a flat list of achievement strings.
+
+    Handles both shapes the LLM emits:
+      * one braced ``\item{ A \\ B \\ C }`` (split the body on ``\\``), and
+      * several bare ``\item A`` entries (split on ``\item``).
+    Braces are matched, never blindly stripped, so inline groups survive.
+    """
+    item_starts = [m.start() for m in re.finditer(r"\\item\b", inner)]
+    chunks: list[str] = []
+    if not item_starts:
+        chunks.append(inner)
+    else:
+        for k, start in enumerate(item_starts):
+            cursor = start + len("\\item")
+            j = cursor
+            while j < len(inner) and inner[j] in " \t\n":
+                j += 1
+            if j < len(inner) and inner[j] == "{":
+                end = _find_matching_brace(inner, j)
+                if end != -1:
+                    chunks.append(inner[j + 1:end])
+                    continue
+            nxt = item_starts[k + 1] if k + 1 < len(item_starts) else len(inner)
+            chunks.append(inner[cursor:nxt])
+
+    frags: list[str] = []
+    for chunk in chunks:
+        chunk = _SIZE_CMD_RE.sub("", chunk)
+        for piece in _LINE_BREAK_RE.split(chunk):
+            piece = _strip_wrapping_braces(piece)
+            if piece:
+                frags.append(piece)
+    return frags
+
+
+def _rescue_section_body(body: str) -> str:
+    m = _ITEMIZE_BLOCK_RE.search(body)
+    if not m:
+        return body
+    frags = _explode_items(m.group(1))
+    if not frags:
+        return body
+    items = "\n        ".join(f"\\resumeItem{{{f}}}" for f in frags)
+    return f"{body[:m.start()]}{items}{body[m.end():]}"
+
+
+def rescue_bulletless_achievements(latex: str) -> str:
+    r"""Re-bullet achievement-type sections the LLM flattened to plain lines.
+
+    Only touches sections whose heading matches an achievement-ish keyword AND
+    that contain no ``\resumeItem``. The exploded bare ``\resumeItem`` lines are
+    then wrapped by :func:`ensure_bullet_wrappers`.
+    """
+    parts = _SECTION_SPLIT.split(latex)
+    if len(parts) < 3:
+        return latex
+    rebuilt: list[str] = [parts[0]]
+    i = 1
+    while i < len(parts):
+        header = parts[i]
+        body = parts[i + 1] if i + 1 < len(parts) else ""
+        rebuilt.append(header)
+        if _ACHIEVEMENT_TITLE_RE.search(header) and "\\resumeItem{" not in body:
+            body = _rescue_section_body(body)
+        rebuilt.append(body)
+        i += 2
+    return "".join(rebuilt)
+
+
+# A `\resumeSubHeadingListStart` whose body is ONLY a `\resumeItemListStart`
+# block (no `\resumeSubheading`/`\item` between the two) opens a nested itemize
+# before the outer one has any item → LaTeX "Something's wrong--perhaps a
+# missing \item" and zero pages of output. Experience/Projects are safe because
+# a `\resumeSubheading` (which emits an `\item`) sits between the wrappers; an
+# Achievements list has none. Collapsing to the bare item list is valid LaTeX
+# and still renders bullets (\resumeItemListStart = a plain \begin{itemize}).
+_REDUNDANT_SUBHEADING_WRAP = re.compile(
+    r"\\resumeSubHeadingListStart\s*\\resumeItemListStart"
+    r"(.*?)"
+    r"\\resumeItemListEnd\s*\\resumeSubHeadingListEnd",
+    re.DOTALL,
+)
+
+
+def fix_redundant_subheading_wrapper(latex: str) -> str:
+    r"""Drop a `\resumeSubHeadingListStart` that only wraps a bullet list.
+
+    Repairs the empty-outer-list crash for sections (typically Achievements)
+    that nest `\resumeItemListStart` directly inside `\resumeSubHeadingListStart`
+    with no intervening `\resumeSubheading`.
+    """
+    return _REDUNDANT_SUBHEADING_WRAP.sub(
+        lambda m: f"\\resumeItemListStart{m.group(1)}\\resumeItemListEnd", latex
+    )
+
+
 _DOCCLASS_FONTSIZE = re.compile(
     r"(\\documentclass\[[^\]]*?)\b(11|12)pt\b"
 )
@@ -297,20 +441,32 @@ def shrink_to_fit(latex: str) -> str:
     return out
 
 
-def sanitize_for_tectonic(latex: str, *, shrink: bool = False) -> str:
+def sanitize_for_tectonic(
+    latex: str, *, finalize: bool = False, shrink: bool = False
+) -> str:
     """Run all known sanitizers. Apply to BOTH user input (so the LLM never
     sees crash-triggering constructs) and the LLM output (in case the LLM
     re-introduced them despite preserve rules).
 
-    ``shrink=True`` additionally applies one-page-fit adjustments AND strips
-    the LLM-added \\textbf{} from inside bullets. Only enable this for the
-    FINAL compile — pre-LLM sanitize should keep the original's bolds intact.
+    ``finalize=True`` additionally strips the LLM-added \\textbf{} from inside
+    bullets and repairs/re-bullets list structure (orphan ``\\resumeItem`` and
+    flattened achievement sections). Enable it for the FINAL compile only —
+    pre-LLM sanitize should keep the original's bolds and layout intact.
+
+    ``shrink=True`` layers on the one-page-fit geometry. It's now decoupled
+    from ``finalize`` so the caller can compile at natural size first and only
+    shrink when the document actually overflows a page.
     """
     latex = neutralize_fontawesome(latex)
     latex = strip_pdftex_only_directives(latex)
     latex = fix_command_environment_confusion(latex)
-    if shrink:
+    if finalize:
         latex = strip_added_bolds(latex)
+        latex = rescue_bulletless_achievements(latex)
         latex = ensure_bullet_wrappers(latex)
+        # Must run AFTER ensure_bullet_wrappers, which can itself create the
+        # broken `\resumeSubHeadingListStart`→`\resumeItemListStart` nesting.
+        latex = fix_redundant_subheading_wrapper(latex)
+    if shrink:
         latex = shrink_to_fit(latex)
     return latex

@@ -5,7 +5,7 @@
 % License : MIT
 %------------------------
 
-\documentclass[letterpaper,10pt]{article}
+\documentclass[letterpaper,11pt]{article}
 
 \usepackage{latexsym}
 \usepackage[empty]{fullpage}
@@ -91,15 +91,6 @@
 \newcommand{\resumeItemListStart}{\begin{itemize}}
 \newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
 
-% STRIDE-SHRINK-V4: tighten geometry so tailored content fits one page
-\addtolength{\textheight}{0.8in}
-\addtolength{\textwidth}{0.4in}
-\addtolength{\oddsidemargin}{-0.2in}
-\addtolength{\evensidemargin}{-0.2in}
-\linespread{0.93}
-\setlength{\parskip}{0pt}
-\setlength{\parsep}{0pt}
-\setlength{\itemsep}{0pt}
 \begin{document}
 
 %----------HEADING----------
@@ -129,18 +120,18 @@
       {NexCell Solutions}{March 2026 -- Present}
       {Backend Developer Intern}{London, United Kingdom (Remote)}
       \resumeItemListStart
-        \resumeItem{Developed 15+ scalable REST API endpoints using FastAPI and PostgreSQL for ConneX AI, enabling real-time workflow automation and backend integration, leveraging SQL for data management.}
-        \resumeItem{Built an event-driven automation engine using Celery and Redis for asynchronous trigger-action execution, improving workflow scalability and enabling reliable background task processing, ensuring end-to-end quality.}
-        \resumeItem{Implemented DAG-based workflow orchestration with conditional execution logic to support extensible multi-node automation pipelines, considering edge cases and testing thoroughly.}
-        \resumeItem{Performed comprehensive unit and integration testing to validate API functionality and workflow reliability, addressing identified issues prior to deployment.}
+        \resumeItem{Developed 15+ scalable REST API endpoints using FastAPI and PostgreSQL for ConneX AI, enabling real-time workflow automation and backend integration.}
+        \resumeItem{Built an event-driven automation engine using Celery and Redis for asynchronous trigger-action execution, improving workflow scalability and enabling reliable background task processing.}
+        \resumeItem{Implemented DAG-based workflow orchestration with conditional execution logic to support extensible multi-node automation pipelines.}
+        \resumeItem{Prototyped and iterated on backend service enhancements, focusing on performance and new feature integration for workflow automation.}
       \resumeItemListEnd
  \resumeSubheading
       {Soul AI}{April 2026 -- May 2026}
       {LLM Evaluation Engineer -- Freelance (Project Groot)}{Delaware, United States (Remote)}
       \resumeItemListStart
-        \resumeItem{Evaluated 20+ Large Language Model (LLM) responses within RLHF pipelines, improving response quality, factual consistency, and safety alignment across AI evaluation workflows.}
-        \resumeItem{Performed structured analysis of LLM responses to identify edge cases, hallucinations, logical inconsistencies, and failure patterns, owning the analysis and testing.}
-        \resumeItem{Developed and refined evaluation metrics to systematically quantify LLM performance, contributing to data-driven improvements in model responses.}
+        \resumeItem{Evaluated 20+ Large Language Model (LLM) responses within RLHF pipelines, improving response quality, factual consistency, and safety alignment across evaluation workflows.}
+        \resumeItem{Performed structured analysis of LLM responses to identify edge cases, hallucinations, logical inconsistencies, and failure patterns, contributing to model iteration.}
+        \resumeItem{Experimented with various LLM prompting strategies and evaluation metrics to enhance model performance and reduce biases.}
       \resumeItemListEnd
   \resumeSubHeadingListEnd
 
@@ -152,20 +143,20 @@
           {\textbf{DealDrop} $|$ \href{https://dealdroppro.vercel.app}{\textcolor{blue}{Live}} $|$ \emph{React.js, Node.js, Express.js, Supabase (PostgreSQL), Google OAuth 2.0}}{}
           \vspace{-8pt}
           \resumeItemListStart
-            \resumeItem{Built scalable full-stack architecture using Supabase (PostgreSQL) and production deployment workflows supporting 500+ tracked user-facing products, leveraging SQL.}
-            \resumeItem{Integrated Google OAuth and Firecrawl API for secure authentication and automated product data extraction, shipping working code end-to-end.}
-            \resumeItem{Developed CRON-based workflows for periodic scraping, price validation, and real-time price-drop alerts, owning testing and ensuring data quality.}
-            \resumeItem{Designed and implemented the React.js frontend, ensuring a responsive user experience for price tracking and alert management.}
+            \resumeItem{Built scalable full-stack architecture using Supabase (PostgreSQL) and production deployment workflows supporting 500+ tracked products.}
+            \resumeItem{Integrated Google OAuth and Firecrawl API for secure authentication and automated product data extraction.}
+            \resumeItem{Developed CRON-based workflows for periodic scraping, price validation, and real-time price-drop alerts, utilizing automation tools.}
+            \resumeItem{Transformed initial concepts into a working demo, demonstrating end-to-end functionality from data acquisition to user alerts.}
           \resumeItemListEnd
           \vspace{-10pt}
       \resumeProjectHeading
           {\textbf{Flux AI} $|$ \href{https://github.com/YashIsTheBest247/FluxAI}{\textcolor{blue}{GitHub}} $|$ \emph{Next.js, NLP, FastAPI, Python, FFmpeg, MoviePy, Pillow, Kokoro TTS}}{}
           \vspace{-8pt}
           \resumeItemListStart
-           \resumeItem{Built an end-to-end AI content generation pipeline by integrating AI APIs that transformed text prompts into narrated videos and podcasts with automated subtitle generation for user-facing products.}
-\resumeItem{Architected a multi-provider inference orchestration system with intelligent fallback routing across LLM, image generation, and speech synthesis models, applying algorithms and data structures to optimize generation costs for AI tools.}
-\resumeItem{Built full content workflow: text parsing, subtitle generation, 1080X1920 video assembly, thumbnail creation, and automated YouTube publishing, shipping working code and ensuring quality.}
-\resumeItem{Optimized video processing pipelines using FFmpeg and MoviePy, significantly reducing render times for AI-generated content.}
+           \resumeItem{Built an end-to-end AI content generation pipeline by integrating AI APIs that transformed text prompts into narrated AI videos and podcasts with automated subtitle generation.}
+\resumeItem{Architected a multi-provider inference orchestration system with intelligent fallback routing across LLM, AI image generation, and speech synthesis models, reducing generation costs for AI video creation.}
+\resumeItem{Built full content workflow: text parsing, subtitle generation, AI video assembly, thumbnail creation, and automated YouTube publishing for content distribution.}
+\resumeItem{Experimented with various AI video creation tools and LLM prompts to prototype diverse media formats for visual storytelling.}
           \resumeItemListEnd
           
     \resumeSubHeadingListEnd
@@ -175,11 +166,12 @@
 \section{Technical Skills}
  \begin{itemize}[leftmargin=0.15in, label={}]
     \small{\item{
-     \textbf{Languages}{: Java, Python, C/C++, JavaScript, SQL, Golang} \\[4pt]
+     \textbf{Languages}{: Java, Python, C/C++, JavaScript, SQL} \\[4pt]
      \textbf{Databases:} PostgreSQL, MySQL, Supabase, Redis \\[4pt]
-     \textbf{Developer Tools}{: GitHub, Git, Docker, Alembic, Cloudflare, Firebase, Linux, CI/CD Pipelines} \\[4pt]
-     \textbf{Generative AI and LLMs}{: OpenAI GPT-4/4o, Gemini API, Hugging Face Transformers, LangChain, AI Agents, Retrieval-Augmented Generation (RAG), Prompt Engineering, Claude, Codex, AI-assisted Development Workflows} \\[4pt]
-     \textbf{Technologies/Frameworks}{: React.js, FastAPI, Flask, REST APIs, OAuth 2.0, Node.js, Express.js, HTML, CSS, ORM} \\[4pt]
+     \textbf{Developer Tools}{: GitHub, Git, Docker, Alembic, Cloudflare, Firebase, Linux, CI/CD Pipelines, Automation Tools} \\[4pt]
+     \textbf{Generative AI and LLMs}{: OpenAI GPT-4/4o, Gemini API, Hugging Face Transformers, LangChain, AI Agents, Retrieval-Augmented Generation (RAG), Prompt Engineering, Claude, Codex, AI-assisted Development Workflows, ChatGPT, Gemini, Claude, AI Tools, AI Video \& Image Tools} \\[4pt]
+     \textbf{Technologies/Frameworks}{: React.js, FastAPI, Flask, REST APIs, OAuth 2.0, Node.js, Express.js, HTML, CSS, ORM, APIs} \\[4pt]
+     \textbf{No-code/Low-code Tools}{: Zapier, Bubble, Webflow (examples of tools, demonstrating familiarity with concept)} \\[4pt]
      \textbf{Core Concepts}{: Data Structures and Algorithms, OOP, Operating Systems, DBMS, Automated Testing} \\
     }}
  \end{itemize}

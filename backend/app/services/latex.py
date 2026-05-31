@@ -1,8 +1,10 @@
 import os
+import re
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import NamedTuple
 
 from ..config import get_settings
 
@@ -11,6 +13,22 @@ class LatexCompileError(RuntimeError):
     def __init__(self, message: str, log_tail: str = "") -> None:
         super().__init__(message)
         self.log_tail = log_tail
+
+
+class CompileResult(NamedTuple):
+    pdf: bytes
+    pages: int  # 0 = unknown (log line not found / unparseable)
+
+
+# TeX writes e.g. "Output written on resume.pdf (1 page, 51234 bytes)." at the
+# end of a successful run. We read the page count from there — reliable and
+# free, no PDF parsing needed.
+_PAGE_COUNT_RE = re.compile(r"Output written on .*?\((\d+)\s+pages?", re.DOTALL)
+
+
+def _page_count_from_log(log_text: str) -> int:
+    m = _PAGE_COUNT_RE.search(log_text)
+    return int(m.group(1)) if m else 0
 
 
 def _build_env(tectonic_path: str) -> dict:
@@ -32,8 +50,13 @@ def _build_env(tectonic_path: str) -> dict:
     return env
 
 
-def compile_latex_to_pdf(latex_source: str, timeout_sec: int = 120) -> bytes:
-    """Compile a single .tex string to PDF bytes using Tectonic."""
+def compile_latex_to_pdf(latex_source: str, timeout_sec: int = 120) -> CompileResult:
+    """Compile a single .tex string to PDF bytes using Tectonic.
+
+    Returns the PDF bytes plus the rendered page count (0 if the count couldn't
+    be read from the log) so callers can decide whether one-page shrinking is
+    needed.
+    """
     settings = get_settings()
     tectonic = shutil.which(settings.tectonic_bin) or settings.tectonic_bin
 
@@ -89,4 +112,11 @@ def compile_latex_to_pdf(latex_source: str, timeout_sec: int = 120) -> bytes:
         pdf_path = tmp_path / "resume.pdf"
         if not pdf_path.exists():
             raise LatexCompileError("Tectonic reported success but no PDF was produced.")
-        return pdf_path.read_bytes()
+
+        log_file = tmp_path / "resume.log"
+        pages = (
+            _page_count_from_log(log_file.read_text(errors="ignore"))
+            if log_file.exists()
+            else 0
+        )
+        return CompileResult(pdf=pdf_path.read_bytes(), pages=pages)

@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from ..services.latex import LatexCompileError, compile_latex_to_pdf
+from ..services.latex import CompileResult, LatexCompileError, compile_latex_to_pdf
 from ..services.llm import fix_latex_compile_error, tailor_resume
 from ..services.preprocess import sanitize_for_tectonic
 
@@ -22,7 +22,7 @@ class TailorRequest(BaseModel):
     job_description: str = Field(..., min_length=1, max_length=MAX_JD_CHARS)
 
 
-def _compile_with_repair(latex: str) -> bytes:
+def _compile_with_repair(latex: str) -> CompileResult:
     """Compile with one LLM-assisted retry on failure.
 
     Tectonic is strict; the original LaTeX (or the LLM-tailored output) often
@@ -145,14 +145,28 @@ async def tailor(payload: TailorRequest):
     else:
         logger.info("[STRIDE /tailor] char-diff vs input: %.1f%%", diff_ratio * 100)
 
-    # Defence-in-depth: sanitize the LLM output too, in case it added back
-    # any crash-triggering packages despite the preserve-rules in the prompt.
-    # `shrink=True` forces the final document to 10pt + extra textheight so
-    # the tailored resume reliably fits on one page.
-    safe_latex = sanitize_for_tectonic(result.latex, shrink=True)
+    # Defence-in-depth: sanitize + finalize the LLM output (strip crash-y
+    # packages, undo added bolds, repair/re-bullet lists). Compile at NATURAL
+    # size first — only force the one-page shrink (10pt + extra textheight) if
+    # the document actually overflows a page. This keeps short resumes from
+    # being over-compressed into a sparse page with a big empty bottom.
+    finalized = sanitize_for_tectonic(result.latex, finalize=True)
 
     try:
-        pdf_bytes = _compile_with_repair(safe_latex)
+        compiled = _compile_with_repair(finalized)
+        # pages == 1 → leave at natural size. pages > 1 → must shrink to fit.
+        # pages == 0 → page count unreadable; shrink as the safe default so we
+        # never regress the one-page guarantee.
+        if compiled.pages != 1:
+            logger.info(
+                "[STRIDE /tailor] natural compile = %s page(s); applying one-page shrink",
+                compiled.pages or "unknown",
+            )
+            shrunk = sanitize_for_tectonic(result.latex, finalize=True, shrink=True)
+            compiled = _compile_with_repair(shrunk)
+        else:
+            logger.info("[STRIDE /tailor] natural compile fits one page; no shrink applied")
+        pdf_bytes = compiled.pdf
     except LatexCompileError as exc:
         raise HTTPException(
             status_code=422,

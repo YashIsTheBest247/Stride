@@ -138,22 +138,28 @@ RULES IN PRIORITY ORDER:
        \\resumeItem{CyberPeace Hackathon finalist...}
        \\resumeItem{Recognized as Expert Contributor...}
 
-   ✗ ALSO BAD (still no bullets — single wrapper isn't enough for templates that require both):
+   ✗ ALSO BAD (compiles but NO bullets — a bare \\resumeItem under \\resumeSubHeadingListStart lands in a label-less list):
        \\section{Achievements}
        \\resumeSubHeadingListStart
          \\resumeItem{CyberPeace Hackathon finalist...}
        \\resumeSubHeadingListEnd
 
-   ✓ GOOD (matches the input wrapper — bullets render):
+   ✗ CRASHES — "Something's wrong--perhaps a missing \\item", zero pages out. Putting \\resumeItemListStart DIRECTLY inside \\resumeSubHeadingListStart with NO \\resumeSubheading between them opens a nested list before the outer one has any item:
        \\section{Achievements}
        \\resumeSubHeadingListStart
          \\resumeItemListStart
            \\resumeItem{CyberPeace Hackathon finalist...}
-           \\resumeItem{Recognized as Expert Contributor...}
          \\resumeItemListEnd
        \\resumeSubHeadingListEnd
 
-   CRITICAL: whatever wrapper pair the INPUT uses around its \\resumeItem calls (commonly \\resumeItemListStart … \\resumeItemListEnd, sometimes nested inside \\resumeSubHeadingListStart … \\resumeSubHeadingListEnd), the OUTPUT must use the IDENTICAL wrapper pair around every \\resumeItem in every section — Experience, Projects, Achievements, Extracurricular, ALL of them. Copy the exact wrapper command names from the input; do not paraphrase or simplify them.
+   ✓ GOOD (bullets render AND it compiles) — a subheading-less list uses ONLY \\resumeItemListStart … \\resumeItemListEnd, placed directly under the section:
+       \\section{Achievements}
+       \\resumeItemListStart
+         \\resumeItem{CyberPeace Hackathon finalist...}
+         \\resumeItem{Recognized as Expert Contributor...}
+       \\resumeItemListEnd
+
+   CRITICAL: every \\resumeItem must sit inside a \\resumeItemListStart … \\resumeItemListEnd pair. \\resumeSubHeadingListStart is ONLY for blocks that begin with a \\resumeSubheading (Experience, Projects) — it must NEVER be the immediate parent of \\resumeItemListStart. For a plain bullet list with no subheading (Achievements, Extracurricular, Awards), use \\resumeItemListStart alone, directly under the \\section. Copy the exact wrapper command names from the input; do not paraphrase or simplify them.
 
 9. FILENAME METADATA — when extracting the role for the filename, give just the position title (e.g. "Technical Advisor Specialist") WITHOUT employment-type suffixes like "Internship", "Intern", "Part Time", "Full Time", "Contract", "Remote". The backend strips those anyway, but cleaner input = cleaner output.
 
