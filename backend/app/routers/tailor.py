@@ -58,7 +58,15 @@ def _compile_with_repair(latex: str) -> CompileResult:
 
 
 @router.post("/tailor")
-async def tailor(payload: TailorRequest):
+def tailor(payload: TailorRequest):
+    # NB: deliberately a SYNC `def`, not `async def`. The body makes blocking
+    # calls — the Gemini SDK (`generate_content`, plus blocking `time.sleep`
+    # retries) and Tectonic via `subprocess.run` — that together run 60-90s.
+    # Under a single uvicorn worker an `async def` would run all that on the
+    # event loop, starving `/api/health`; Render then judges the instance
+    # unhealthy and restarts it mid-request → empty-body 502. A sync handler
+    # is dispatched to FastAPI's threadpool, keeping the loop free for health
+    # checks so the request can finish and stream back the PDF.
     logger.info(
         "[STRIDE /tailor] received latex=%d chars  jd=%d chars",
         len(payload.latex_source),
