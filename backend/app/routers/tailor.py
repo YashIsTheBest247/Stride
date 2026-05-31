@@ -9,6 +9,7 @@ from ..services.latex import CompileResult, LatexCompileError, compile_latex_to_
 from ..services.llm import fix_latex_compile_error, tailor_resume
 from ..services.preprocess import (
     MAX_SHRINK_LEVEL,
+    count_achievement_items,
     sanitize_for_tectonic,
     shrink_to_fit,
 )
@@ -129,6 +130,19 @@ def tailor(payload: TailorRequest):
         "[STRIDE /tailor] LLM ok — name=%s company=%s role=%s latex=%d chars",
         result.full_name, result.company, result.role, len(result.latex),
     )
+
+    # Sanity check: achievement points preserved? The Achievements list is the
+    # one the LLM most often trims to save space — count before vs after and
+    # flag any drop loudly (the prompt forbids dropping bullets).
+    in_ach = count_achievement_items(sanitized_input)
+    out_ach = count_achievement_items(result.latex)
+    if out_ach < in_ach:
+        logger.warning(
+            "[STRIDE /tailor] ACHIEVEMENTS DROPPED: input=%d output=%d points (LLM trimmed the list)",
+            in_ach, out_ach,
+        )
+    else:
+        logger.info("[STRIDE /tailor] achievements preserved: input=%d output=%d points", in_ach, out_ach)
 
     # Sanity check: existing bullets preserved? (Adding new ones is now
     # explicitly allowed for JD-relevant augmentation — only a DROP is bad.)

@@ -32,9 +32,11 @@ Catalyst2.0/
 | `/app` | Tailor flow: paste `.tex` + JD → PDF download |
 | `/search` | Search live boards + deep-link buttons to LinkedIn/Indeed/Glassdoor/Wellfound/Naukri |
 
-Default-resume slot — paste your `.tex` once on either page and click **★ SAVE**.
-It's stored in your browser (`localStorage["stride:default-latex"]`); the **DEFAULT**
-button on both pages reloads it instantly.
+Default-resume slot — the **DEFAULT** button on both pages drops a resume into
+the textarea instantly. A built-in sample ships in the bundle (so it works on a
+fresh browser / the deployed app with nothing saved); paste your own `.tex` and
+click **★ SAVE** to override it (stored in your browser under
+`localStorage["stride:default-latex"]`, never sent to the backend).
 
 ---
 
@@ -144,10 +146,12 @@ Pipeline:
 
 1. **Pre-process** the user's `.tex` to strip constructs that crash Tectonic on Windows (see caveats below).
 2. **Gemini** rewrites bullets and skills using the JD keywords, preserving structure and bullet count. Returns a metadata JSON line + the new `.tex`.
-3. **Post-process** the LLM output: same sanitizers + strip LLM-added `\textbf{}` from bullet bodies + auto-shrink to 10pt so it fits on one page.
-4. **Tectonic** compiles the final `.tex` to PDF.
-5. If the first compile fails, a **repair pass** sends the broken `.tex` + the Tectonic error back to Gemini and retries once.
+3. **Finalize** the LLM output: same sanitizers, strip LLM-added `\textbf{}` from bullet bodies, repair/re-bullet list structure (orphan `\resumeItem`, flattened Achievements, broken `\resumeSubHeadingListStart` nesting), and verify the achievement-point count survived the rewrite.
+4. **Tectonic** compiles at natural 11pt first. If the page overflows — two pages, *or* content clipped past the bottom (Overfull `\vbox`) — it **escalates a one-page shrink**: 10pt → 9pt → 8pt with progressively tighter line spacing, recompiling until it fits. Resumes that already fit keep their natural size (no sparse, over-shrunk look).
+5. If a compile fails, a **repair pass** sends the broken `.tex` + the Tectonic error back to Gemini and retries once.
 6. The PDF streams back with `Content-Disposition: attachment; filename="FullName_Role.pdf"`.
+
+> The `/api/tailor` handler is a sync `def` so its blocking work (Gemini SDK + Tectonic subprocess) runs in FastAPI's threadpool — otherwise a single worker would block the event loop, starve `/api/health`, and get the instance restarted mid-request (a 502).
 
 ### `POST /api/search-jobs`
 
@@ -183,7 +187,9 @@ Tectonic is stricter than most LaTeX engines and has a known Windows bug around 
 | `\input{glyphtounicode}` + `\pdfgentounicode=1` (pdfTeX-only, Tectonic uses XeTeX) | Stripped |
 | LLM writes `\end{resumeItemListStart}` instead of `\resumeItemListEnd` | Regex post-fix: any `\end{...Start}` → `\...End` |
 | LLM adds `\textbf{}` around bullet keywords despite the no-emphasis rule | Stripped from inside `\resumeItem{...}` bodies and skill value lists; structural bolds (job titles, category labels) preserved |
-| Resume runs to 2 pages after tailoring | `\documentclass[...,11pt,...]` rewritten to `10pt` + `\addtolength{\textheight}{0.5in}` injected before `\begin{document}` (only on the final compile, not before the LLM sees it) |
+| Achievements render with no bullets — LLM dropped the list wrapper or flattened the section into a skills-style block | Re-bulleted: orphan `\resumeItem`s get wrapped in `\resumeItemListStart … End`, and flattened achievement blocks are exploded back into `\resumeItem` bullets (title-scoped, so Technical Skills stays intentionally bulletless) |
+| `\resumeItemListStart` nested directly inside `\resumeSubHeadingListStart` (no `\resumeSubheading` between) crashes Tectonic with "Something's wrong--perhaps a missing \item", zero pages out | The redundant outer wrapper is collapsed to a plain `\resumeItemListStart … End` item list (valid, still bulleted) |
+| Resume overflows one page after tailoring | Conditional, **escalating** one-page shrink driven by page count + Overfull `\vbox` detection: compile natural 11pt, then 10pt → 9pt → 8pt with progressively tighter line spacing until it fits. Resumes that already fit are left at natural size. Applied only on the final compile, never before the LLM sees the source. |
 | Filename gets "Internship", "Part Time", "Full Time" suffixes | Trailing employment-type tokens stripped from the role segment of the filename |
 
 ---

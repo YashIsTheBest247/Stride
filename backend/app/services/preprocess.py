@@ -355,6 +355,27 @@ def rescue_bulletless_achievements(latex: str) -> str:
     return "".join(rebuilt)
 
 
+def count_achievement_items(latex: str) -> int:
+    r"""Count ``\resumeItem`` (and bare ``\item``) entries in achievement-type
+    sections, so the caller can verify the LLM didn't drop any bullets.
+
+    Counts bare ``\item`` too, so a not-yet-rescued flattened block (one
+    ``\item`` holding several ``\\``-separated lines) still registers as
+    non-zero rather than silently reading as 0 achievements.
+    """
+    parts = _SECTION_SPLIT.split(latex)
+    total = 0
+    i = 1
+    while i < len(parts):
+        header = parts[i]
+        body = parts[i + 1] if i + 1 < len(parts) else ""
+        if _ACHIEVEMENT_TITLE_RE.search(header):
+            n = body.count("\\resumeItem{")
+            total += n if n else body.count("\\item")
+        i += 2
+    return total
+
+
 # A `\resumeSubHeadingListStart` whose body is ONLY a `\resumeItemListStart`
 # block (no `\resumeSubheading`/`\item` between the two) opens a nested itemize
 # before the outer one has any item → LaTeX "Something's wrong--perhaps a
@@ -402,7 +423,8 @@ _OLD_SHRINK_MARKERS = (
 _SHRINK_PROFILES = {
     1: {"font": 10, "linespread": 0.93},  # gentle (old V4 default)
     2: {"font": 10, "linespread": 0.88},  # tighter lines
-    3: {"font": 9,  "linespread": 0.90},  # smaller font — last resort
+    3: {"font": 9,  "linespread": 0.90},  # smaller font
+    4: {"font": 8,  "linespread": 0.90},  # smallest — last resort, all but guarantees fit
 }
 MAX_SHRINK_LEVEL = max(_SHRINK_PROFILES)
 
