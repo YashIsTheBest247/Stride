@@ -129,7 +129,7 @@ export const BUILTIN_DEFAULT_LATEX = String.raw`%-------------------------
   \resumeSubHeadingListStart
     \resumeSubheading
       {Kalinga Institute of Industrial Technology}{July 2023 -- July 2027}
-      {B. Tech in Electronics and Computer Science Engineering, CGPA: 9.15}{Bhubaneswar, Odisha}
+      {B. Tech in Electronics and Computer Science Engineering, CGPA: 9.19}{Bhubaneswar, Odisha}
   \resumeSubHeadingListEnd
 
 %-----------EXPERIENCE-----------
