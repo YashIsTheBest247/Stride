@@ -16,6 +16,12 @@ router = APIRouter(tags=["tailor"])
 MAX_LATEX_CHARS = 250_000
 MAX_JD_CHARS = 20_000
 
+# A one-page render with an Overfull \vbox taller than this (points) has its
+# bottom clipped → treat as "doesn't fit" and shrink. Small overfulls (a stray
+# rule/last line a hair too tall) are visually harmless and shouldn't trigger
+# the aggressive 10pt squeeze on an otherwise-fitting resume.
+_OVERFLOW_PT_THRESHOLD = 3.0
+
 
 class TailorRequest(BaseModel):
     latex_source: str = Field(..., min_length=1, max_length=MAX_LATEX_CHARS)
@@ -162,16 +168,28 @@ def tailor(payload: TailorRequest):
 
     try:
         compiled = _compile_with_repair(finalized)
-        # pages == 1 → leave at natural size. pages > 1 → must shrink to fit.
-        # pages == 0 → page count unreadable; shrink as the safe default so we
-        # never regress the one-page guarantee.
-        if compiled.pages != 1:
+        # Decide whether the natural-size render actually FITS one page. Two
+        # ways it can fail to fit:
+        #   • pages > 1  — it spilled onto a second page.
+        #   • pages == 1 but an Overfull \vbox — content is taller than the
+        #     printable area, so the bottom (e.g. trailing Achievements) is
+        #     CLIPPED even though TeX still calls it one page.
+        # pages == 0 (count unreadable) → shrink as the safe default.
+        # Only when it genuinely fits do we keep natural size (avoids the
+        # over-compressed, sparse-bottom look on short resumes).
+        overflowed = compiled.pages != 1 or compiled.overfull_pt > _OVERFLOW_PT_THRESHOLD
+        if overflowed:
             logger.info(
-                "[STRIDE /tailor] natural compile = %s page(s); applying one-page shrink",
-                compiled.pages or "unknown",
+                "[STRIDE /tailor] natural compile doesn't fit (pages=%s, overfull=%.1fpt); applying one-page shrink",
+                compiled.pages or "unknown", compiled.overfull_pt,
             )
             shrunk = sanitize_for_tectonic(result.latex, finalize=True, shrink=True)
             compiled = _compile_with_repair(shrunk)
+            if compiled.pages and compiled.pages > 1:
+                logger.warning(
+                    "[STRIDE /tailor] STILL %d pages after shrink — content may be too long",
+                    compiled.pages,
+                )
         else:
             logger.info("[STRIDE /tailor] natural compile fits one page; no shrink applied")
         pdf_bytes = compiled.pdf

@@ -18,6 +18,7 @@ class LatexCompileError(RuntimeError):
 class CompileResult(NamedTuple):
     pdf: bytes
     pages: int  # 0 = unknown (log line not found / unparseable)
+    overfull_pt: float = 0.0  # worst vertical overflow; >0 means content was cut
 
 
 # TeX writes e.g. "Output written on resume.pdf (1 page, 51234 bytes)." at the
@@ -25,10 +26,21 @@ class CompileResult(NamedTuple):
 # free, no PDF parsing needed.
 _PAGE_COUNT_RE = re.compile(r"Output written on .*?\((\d+)\s+pages?", re.DOTALL)
 
+# "Overfull \vbox (37.5pt too high) has occurred while \output is active" means
+# the page's content is taller than the printable area — i.e. it ran off the
+# bottom and got CLIPPED, even though TeX still counts it as one page. We use
+# the worst such value to decide whether a one-page-looking doc actually fits.
+_OVERFULL_VBOX_RE = re.compile(r"Overfull \\vbox \((\d+(?:\.\d+)?)pt too high\)")
+
 
 def _page_count_from_log(log_text: str) -> int:
     m = _PAGE_COUNT_RE.search(log_text)
     return int(m.group(1)) if m else 0
+
+
+def _max_overfull_vbox_pt(log_text: str) -> float:
+    vals = [float(m.group(1)) for m in _OVERFULL_VBOX_RE.finditer(log_text)]
+    return max(vals) if vals else 0.0
 
 
 def _build_env(tectonic_path: str) -> dict:
@@ -114,9 +126,9 @@ def compile_latex_to_pdf(latex_source: str, timeout_sec: int = 120) -> CompileRe
             raise LatexCompileError("Tectonic reported success but no PDF was produced.")
 
         log_file = tmp_path / "resume.log"
-        pages = (
-            _page_count_from_log(log_file.read_text(errors="ignore"))
-            if log_file.exists()
-            else 0
+        log_text = log_file.read_text(errors="ignore") if log_file.exists() else ""
+        return CompileResult(
+            pdf=pdf_path.read_bytes(),
+            pages=_page_count_from_log(log_text),
+            overfull_pt=_max_overfull_vbox_pt(log_text),
         )
-        return CompileResult(pdf=pdf_path.read_bytes(), pages=pages)
