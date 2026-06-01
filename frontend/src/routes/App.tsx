@@ -109,7 +109,7 @@ export default function AppPage() {
             Paste. Generate. <span className="text-sap-100">Download.</span>
           </h1>
           <p className="mt-5 max-w-2xl text-sm leading-relaxed text-sap-100/65">
-            Drop your LaTeX on the left, the job description on the right. STRIDE rewrites the parts an ATS reads and ships a PDF named <span className="font-mono text-sap-200">Firstname_Company_Role.pdf</span>.
+            Drop your LaTeX on the left, the job description on the right. STRIDE rewrites the parts an ATS reads and ships a PDF named <span className="font-mono text-sap-200">Firstname_Secondname_Role.pdf</span>.
           </p>
         </div>
       </section>

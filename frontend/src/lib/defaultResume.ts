@@ -199,7 +199,7 @@ export const BUILTIN_DEFAULT_LATEX = String.raw`%-------------------------
             \resumeItemListStart
                 \resumeItem{CyberPeace Hackathon 2026 finalist among 350+ competing teams.}
                 \resumeItem{Recognized as Expert Contributor at Deccan AI for AI evaluation and technical contributions.}
-                \resumeItem{Apprenticeship - Dev Weekends Fellow.}
+                \resumeItem{Apprenticeship - Dev Weekends.}
                 \resumeItem{District Rank 4 and 5 in the International English Olympiad (IEO) for two consecutive years.}
                 \resumeItem{Shortlisted for the Samsung Fellowship (ISWDP Cohort 7.0) from 4700+ applicants.}
                  \resumeItem{Selected Participant at the Harvard Health Systems Innovation Lab (India Hub).}
