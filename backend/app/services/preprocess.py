@@ -409,6 +409,34 @@ _DOCCLASS_FONTSIZE = re.compile(
 )
 
 
+_PAGECAP_MARKER = "% STRIDE-PAGECAP-V1"
+
+
+def cap_text_height(latex: str) -> str:
+    r"""Pin ``\textheight`` to the physical page so vertical overflow is DETECTABLE.
+
+    The Jake-Gutierrez template sets ``\textheight`` ~1in TALLER than the
+    printable area (``\addtolength{\textheight}{3.0in}``). Content that runs
+    past the paper bottom therefore stays *within* ``\textheight`` — TeX never
+    breaks to a 2nd page and never emits an ``Overfull \vbox``, so the trailing
+    lines are silently clipped and the shrink-on-overflow logic sees a clean
+    "1 page". Pinning ``\textheight`` to ``\paperheight - 1.0in`` (≈0.4in bottom
+    margin given the template's high top start) makes excess content spill to a
+    real 2nd page — which IS detected — so the shrink escalation kicks in.
+
+    Injected once at the end of the preamble (right before ``\begin{document}``),
+    so it overrides the template's earlier ``\addtolength``. Idempotent.
+    """
+    if _PAGECAP_MARKER in latex or "\\begin{document}" not in latex:
+        return latex
+    injection = (
+        f"{_PAGECAP_MARKER}: pin textheight to the page so overflow is detectable\n"
+        "\\setlength{\\textheight}{\\paperheight}\n"
+        "\\addtolength{\\textheight}{-1.0in}\n"
+    )
+    return latex.replace("\\begin{document}", injection + "\\begin{document}", 1)
+
+
 _SHRINK_MARKER = "% STRIDE-SHRINK-V5"
 _OLD_SHRINK_MARKERS = (
     "% STRIDE-SHRINK-V2", "% STRIDE-SHRINK-V3", "% STRIDE-SHRINK-V4",
@@ -417,9 +445,9 @@ _OLD_SHRINK_MARKERS = (
 # Escalating one-page-fit profiles. Each level reduces content HEIGHT more than
 # the last — smaller font and/or tighter line spacing — so a resume that still
 # overflowed at the previous level has another, harder squeeze to try. We vary
-# font + linespread (the levers that actually shrink content) and keep the
-# proven V4 geometry (textheight/​textwidth/margins) constant: expanding
-# textheight further can't help once the text block already fills the page.
+# font + linespread (the levers that actually shrink content); textheight is
+# pinned to the page by cap_text_height() and must NOT be re-expanded here, or
+# overflow becomes invisible again.
 _SHRINK_PROFILES = {
     1: {"font": 10, "linespread": 0.93},  # gentle (old V4 default)
     2: {"font": 10, "linespread": 0.88},  # tighter lines
@@ -449,7 +477,6 @@ def shrink_to_fit(latex: str, level: int = 1) -> str:
         return out
     injection = (
         f"{_SHRINK_MARKER} (level {level}): tighten geometry so content fits one page\n"
-        "\\addtolength{\\textheight}{0.8in}\n"
         "\\addtolength{\\textwidth}{0.4in}\n"
         "\\addtolength{\\oddsidemargin}{-0.2in}\n"
         "\\addtolength{\\evensidemargin}{-0.2in}\n"
@@ -487,6 +514,9 @@ def sanitize_for_tectonic(
         # Must run AFTER ensure_bullet_wrappers, which can itself create the
         # broken `\resumeSubHeadingListStart`→`\resumeItemListStart` nesting.
         latex = fix_redundant_subheading_wrapper(latex)
+        # Pin textheight to the page so a too-long resume overflows DETECTABLY
+        # (2nd page / Overfull) instead of clipping its last lines silently.
+        latex = cap_text_height(latex)
     if shrink:
         latex = shrink_to_fit(latex)
     return latex
