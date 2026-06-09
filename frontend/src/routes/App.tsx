@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowUpRight, CheckCircle2, Download, Loader2, Sparkles, XCircle } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, CheckCircle2, Download, Loader2, Sparkles, Upload, XCircle } from "lucide-react";
 import DefaultButtons from "../components/DefaultButtons";
 import { tailorResume, type TailorResponse } from "../lib/api";
+import { extractPdfText } from "../lib/pdf";
 
 type Status = "idle" | "loading" | "done" | "error";
 
@@ -12,6 +13,32 @@ export default function AppPage() {
   const [error, setError] = useState<string>("");
   const [result, setResult] = useState<TailorResponse | null>(null);
   const resultRef = useRef<HTMLDivElement | null>(null);
+
+  // Job-description PDF upload — extract text in-browser and fill the JD box.
+  const jdFileRef = useRef<HTMLInputElement | null>(null);
+  const [jdExtracting, setJdExtracting] = useState(false);
+  const [jdFileError, setJdFileError] = useState("");
+
+  async function handleJdPdf(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // let the same file be re-picked later
+    if (!file) return;
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      setJdFileError("Please choose a PDF file.");
+      return;
+    }
+    setJdFileError("");
+    setJdExtracting(true);
+    try {
+      const text = await extractPdfText(file);
+      if (text.trim()) setJd(text);
+      else setJdFileError("No selectable text found — is this a scanned/image PDF?");
+    } catch {
+      setJdFileError("Couldn't read that PDF. Try pasting the text instead.");
+    } finally {
+      setJdExtracting(false);
+    }
+  }
 
   // Reset scroll on mount so the textarea panels are immediately visible
   // when arriving from /landing → /app.
@@ -121,20 +148,42 @@ export default function AppPage() {
             </div>
 
             <div className="panel p-6">
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <span className="display text-sm text-sap-100">02</span>
                   <h2 className="display text-xl text-sap-50">Job description</h2>
                 </div>
-                <span className="eyebrow text-sap-100/40">{jd.length.toLocaleString()} chars</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    ref={jdFileRef}
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    className="hidden"
+                    onChange={handleJdPdf}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => jdFileRef.current?.click()}
+                    disabled={jdExtracting}
+                    title="Extract the job description from a PDF"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-black/15 bg-black/[0.03] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-sap-200 transition hover:border-black/40 hover:text-sap-50 active:scale-[0.97] disabled:opacity-40 disabled:hover:border-black/15"
+                  >
+                    {jdExtracting ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />}
+                    {jdExtracting ? "Reading" : "Upload PDF"}
+                  </button>
+                  <span className="eyebrow text-sap-100/40">{jd.length.toLocaleString()} chars</span>
+                </div>
               </div>
               <textarea
                 value={jd}
                 onChange={(e) => setJd(e.target.value)}
-                placeholder="Paste the full job description — title, responsibilities, requirements, tech stack..."
+                placeholder="Paste the full job description — or upload a PDF to extract it — title, responsibilities, requirements, tech stack..."
                 spellCheck={false}
                 className="ta h-[420px]"
               />
+              {jdFileError && (
+                <p className="mt-2 text-[11px] font-medium text-red-600">{jdFileError}</p>
+              )}
             </div>
           </div>
 
