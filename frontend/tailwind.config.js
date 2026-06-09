@@ -4,16 +4,16 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Canvas scale — warm cream / paper. `ink-950` is the body bg, deeper
-        // numbers go *darker* into a deeper cream so panels still read as
-        // recessed. (Kept the key `ink` so className refs migrate; semantics
-        // are now light-on-light depth rather than dark-on-dark depth.)
+        // Canvas scale — white / paper. `ink-950` is the body bg (matches the
+        // CSS body color), deeper numbers go *darker* into light neutral grays
+        // so panels still read as recessed. (Kept the key `ink` so className
+        // refs migrate; semantics are light-on-light depth.)
         ink: {
-          950: "#f5efe2",
-          900: "#f0e8d3",
-          800: "#e6dcc1",
-          700: "#dbceac",
-          600: "#cdbd93",
+          950: "#ffffff",
+          900: "#f4f4f5",
+          800: "#e9e9eb",
+          700: "#dcdce0",
+          600: "#c9c9ce",
         },
         // Text / accent scale — graphite to near-black. `sap-50` is the
         // strongest text (was the brightest cream in the dark theme — same

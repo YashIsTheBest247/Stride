@@ -170,10 +170,7 @@ export default function Landing() {
           <div className="grid gap-px overflow-hidden rounded-3xl bg-black/[0.10] md:grid-cols-3">
             {STEPS.map((s) => (
               <div key={s.n} className="bg-ink-950 p-8">
-                <div className="flex items-center justify-between">
-                  <p className="display chrome text-2xl">{s.n}</p>
-                  <span className="h-1.5 w-1.5 rounded-full bg-sap-50" />
-                </div>
+                <p className="display chrome text-2xl">{s.n}</p>
                 <h3 className="display mt-12 text-3xl text-sap-50">{s.title}</h3>
                 <p className="mt-3 text-sm leading-relaxed text-sap-300">{s.body}</p>
               </div>
@@ -200,10 +197,7 @@ export default function Landing() {
           <div className="grid gap-px overflow-hidden rounded-3xl bg-black/[0.10] md:grid-cols-2 lg:grid-cols-5">
             {HOW_TO_USE.map((s) => (
               <div key={s.n} className="bg-ink-950 p-6">
-                <div className="flex items-center justify-between">
-                  <p className="display chrome text-xl">{s.n}</p>
-                  <span className="h-1.5 w-1.5 rounded-full bg-sap-50" />
-                </div>
+                <p className="display chrome text-xl">{s.n}</p>
                 <h3 className="display mt-8 text-xl text-sap-50">{s.title}</h3>
                 <p className="mt-2 text-[12px] leading-relaxed text-sap-300">{s.body}</p>
               </div>

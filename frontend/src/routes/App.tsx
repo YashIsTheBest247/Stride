@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowUpRight, CheckCircle2, Download, Loader2, Sparkles, XCircle } from "lucide-react";
-import Marquee from "../components/Marquee";
 import DefaultButtons from "../components/DefaultButtons";
 import { tailorResume, type TailorResponse } from "../lib/api";
 
@@ -97,17 +96,7 @@ export default function AppPage() {
         </div>
       </section>
 
-      <Marquee
-        items={[
-          "Rewrites bullets",
-          "Injects keywords",
-          "Preserves formatting",
-          "Compiles to PDF",
-          "Names the file",
-        ]}
-      />
-
-      <section className="px-8 py-12">
+      <section className="px-8 pt-2 pb-12">
         <div className="mx-auto max-w-[1400px]">
           {/* TWO PANES */}
           <div className="grid gap-6 lg:grid-cols-2">

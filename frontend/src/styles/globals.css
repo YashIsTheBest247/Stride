@@ -13,9 +13,9 @@
     html { scroll-behavior: auto; }
   }
   body {
-    background-color: #f5efe2;
-    /* Premium cream canvas with subtle warm pools at the corners — barely
-       perceptible, just enough to give depth without breaking the paper feel. */
+    background-color: #ffffff;
+    /* White canvas with subtle neutral pools at the corners — barely
+       perceptible, just enough to give depth without flattening the page. */
     background-image:
       radial-gradient(ellipse 70% 50% at 85% 0%, rgba(10, 9, 8, 0.05), transparent 60%),
       radial-gradient(ellipse 80% 60% at 15% 100%, rgba(24, 23, 26, 0.04), transparent 60%);
@@ -25,7 +25,7 @@
   }
   ::selection {
     background: rgba(10, 9, 8, 0.85);
-    color: #f5efe2;
+    color: #ffffff;
   }
 }
 

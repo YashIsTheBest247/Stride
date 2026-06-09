@@ -280,7 +280,7 @@ function Dropdown<T extends string>({
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl bg-[#f0e8d3] shadow-[0_18px_50px_-18px_rgba(0,0,0,0.25)] ring-1 ring-black/15">
+        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl bg-white shadow-[0_18px_50px_-18px_rgba(0,0,0,0.25)] ring-1 ring-black/15">
           {options.map((opt) => {
             const active = opt.value === value;
             return (
