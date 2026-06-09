@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import type { TailorStep } from "../lib/api";
 
@@ -16,6 +16,12 @@ export default function TailorProgress({ events }: { events: TailorStep[] }) {
     const tick = window.setInterval(() => setElapsed((e) => e + 1), 1000);
     return () => window.clearInterval(tick);
   }, []);
+
+  // Follow the feed: scroll the newest step into view as each one streams in.
+  const endRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [events.length]);
 
   // Before the first event lands, show a placeholder "starting" row.
   const rows: TailorStep[] = events.length
@@ -70,6 +76,7 @@ export default function TailorProgress({ events }: { events: TailorStep[] }) {
       <p className="mt-1 text-[11px] leading-relaxed text-sap-100/40">
         Usually 15–40s. The first run after a while can take longer while the server wakes up.
       </p>
+      <div ref={endRef} aria-hidden className="h-0" />
     </div>
   );
 }

@@ -523,29 +523,31 @@ _OLD_SHRINK_MARKERS = (
     "% STRIDE-SHRINK-V2", "% STRIDE-SHRINK-V3", "% STRIDE-SHRINK-V4",
 )
 
-# Escalating one-page-fit profiles. Each level reduces content HEIGHT more than
-# the last — smaller font and/or tighter line spacing — so a resume that still
-# overflowed at the previous level has another, harder squeeze to try. We vary
-# font + linespread (the levers that actually shrink content); textheight is
-# pinned to the page by cap_text_height() and must NOT be re-expanded here, or
-# overflow becomes invisible again.
+# One-page-fit profiles, ordered from roomiest to tightest. We fit by dropping
+# the FONT first while keeping spacing READABLE (line spacing >= 1 and real gaps
+# between bullets) — rather than cramming lines together. The caller steps up
+# only while the page still overflows, so it lands on the roomiest size that
+# fits. textheight is pinned to the page by cap_text_height() and must NOT be
+# re-expanded here, or overflow becomes invisible again.
 _SHRINK_PROFILES = {
-    1: {"font": 10, "linespread": 0.93},  # gentle (old V4 default)
-    2: {"font": 10, "linespread": 0.88},  # tighter lines
-    3: {"font": 9,  "linespread": 0.90},  # smaller font
-    4: {"font": 8,  "linespread": 0.90},  # smallest — last resort, all but guarantees fit
+    1: {"font": 10, "linespread": "1.06", "itemsep": "4pt"},  # -1pt, roomy
+    2: {"font": 9,  "linespread": "1.06", "itemsep": "4pt"},  # -2pt, roomy
+    3: {"font": 9,  "linespread": "1.02", "itemsep": "2pt"},  # -2pt, normal
+    4: {"font": 8,  "linespread": "1.0",  "itemsep": "1pt"},  # small
+    5: {"font": 8,  "linespread": "0.92", "itemsep": "0pt"},  # COMPACT — guaranteed one-page fallback
 }
 MAX_SHRINK_LEVEL = max(_SHRINK_PROFILES)
 
 
 def shrink_to_fit(latex: str, level: int = 1) -> str:
-    """Tighten geometry so the tailored resume fits one page, without cropping.
+    """Fit the tailored resume on one page with READABLE spacing.
 
-    ``level`` (1..MAX_SHRINK_LEVEL) selects how hard to squeeze; the caller
-    steps it up only while the page still overflows. Knobs per level come from
-    ``_SHRINK_PROFILES`` (font size + line spacing); the geometry below is the
-    proven V4 set and is constant across levels. NO topmargin shift, so the
-    name/contact header is never pushed above the printable area.
+    ``level`` (1..MAX_SHRINK_LEVEL) selects the profile; the caller steps it up
+    only while the page still overflows, so it lands on the roomiest size that
+    fits. Each profile drops the font and keeps comfortable line spacing
+    (``\\linespread`` >= 1) and a real gap between bullets (``\\itemsep``) — we
+    shrink the type, not the breathing room. The width nudge is constant; NO
+    topmargin shift, so the name/contact header is never pushed off-page.
 
     Injected once, right before \\begin{document}. Idempotent — a .tex that
     already carries the marker (or a prior V2-V4 marker) is returned untouched,
@@ -557,14 +559,13 @@ def shrink_to_fit(latex: str, level: int = 1) -> str:
     if _SHRINK_MARKER in out or any(m in out for m in _OLD_SHRINK_MARKERS):
         return out
     injection = (
-        f"{_SHRINK_MARKER} (level {level}): tighten geometry so content fits one page\n"
+        f"{_SHRINK_MARKER} (level {level}): fit one page with readable spacing\n"
         "\\addtolength{\\textwidth}{0.4in}\n"
         "\\addtolength{\\oddsidemargin}{-0.2in}\n"
         "\\addtolength{\\evensidemargin}{-0.2in}\n"
         "\\linespread{" + str(prof["linespread"]) + "}\n"
         "\\setlength{\\parskip}{0pt}\n"
-        "\\setlength{\\parsep}{0pt}\n"
-        "\\setlength{\\itemsep}{0pt}\n"
+        "\\setlength{\\itemsep}{" + prof["itemsep"] + "}\n"
     )
     return out.replace("\\begin{document}", injection + "\\begin{document}", 1)
 

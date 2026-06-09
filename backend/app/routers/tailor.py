@@ -248,7 +248,7 @@ def tailor(payload: TailorRequest):
 # sync def and the generator is sync, so Starlette iterates it in a threadpool
 # — the blocking Gemini/Tectonic calls never stall the event loop (keeps
 # /api/health responsive, which is what stops Render killing the worker).
-_SHRINK_FONT = {1: "10pt", 2: "10pt (tighter)", 3: "9pt", 4: "8pt"}
+_SHRINK_FONT = {1: "10pt", 2: "9pt", 3: "9pt (normal)", 4: "8pt", 5: "8pt (compact)"}
 
 
 def _sse(obj: dict) -> str:
