@@ -1,10 +1,17 @@
-\documentclass[letterpaper,11pt]{article}
+%-------------------------
+% Resume in Latex
+% Author : Jake Gutierrez
+% Based off of: https://github.com/sb2nov/resume
+% License : MIT
+%------------------------
+
+\documentclass[letterpaper,10pt]{article}
 
 \usepackage{latexsym}
 \usepackage[empty]{fullpage}
 \usepackage{titlesec}
 \usepackage{marvosym}
-\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage[usenames,dvipsNames]{color}
 \usepackage{verbatim}
 \usepackage{enumitem}
 \usepackage[hidelinks]{hyperref}
@@ -87,6 +94,14 @@
 % STRIDE-PAGECAP-V1: pin textheight to the page so overflow is detectable
 \setlength{\textheight}{\paperheight}
 \addtolength{\textheight}{-1.0in}
+% STRIDE-SHRINK-V5 (level 2): tighten geometry so content fits one page
+\addtolength{\textwidth}{0.4in}
+\addtolength{\oddsidemargin}{-0.2in}
+\addtolength{\evensidemargin}{-0.2in}
+\linespread{0.88}
+\setlength{\parskip}{0pt}
+\setlength{\parsep}{0pt}
+\setlength{\itemsep}{0pt}
 \begin{document}
 
 %----------HEADING----------
@@ -121,17 +136,18 @@
       {Soul AI}{April 2026 -- May 2026}
       {Freelance (Project Groot)}{Delaware, United States (Remote)}
       \resumeItemListStart
-        \resumeItem{Evaluated 20+ Large Language Model (LLM) responses within RLHF pipelines, applying strong logical reasoning and analytical skills to improve response quality, factual consistency, and safety alignment across evaluation workflows.}
-        \resumeItem{Performed structured analysis of LLM responses to identify edge cases and failure modes, contributing to robust AI/ML model development.}
+        \resumeItem{Evaluated 20+ Large Language Model (LLM) responses within RLHF pipelines, applying AI and ML principles to improve response quality, factual consistency, and safety alignment across evaluation workflows.}
+        \resumeItem{Performed structured analysis of LLM responses to identify edge cases and failure modes, contributing to robust AI solution design.}
+        \resumeItem{Leveraged AI tools like Claude and GitHub Copilot to expedite analysis and development tasks, enhancing efficiency in AI-driven workflows.}
       \resumeItemListEnd
       \resumeSubheading
       {NexCell Solutions}{March 2026 -- Present}
       {Backend Developer Intern}{London, United Kingdom (Remote)}
       \resumeItemListStart
-        \resumeItem{Developed 15+ scalable REST API endpoints using Python FastAPI and PostgreSQL for ConneX AI, enabling real-time workflow automation and robust backend integration, aligning with data engineering principles.}
-        \resumeItem{Built an event-driven automation engine using Celery and Redis for asynchronous trigger-action execution, improving workflow scalability and enabling reliable background data processing, a key aspect of data engineering.}
-        \resumeItem{Implemented DAG-based workflow orchestration with conditional execution logic to support extensible multi-node automation pipelines, leveraging agile methodologies for continuous delivery.}
-        \resumeItem{Collaborated on solution design and implemented CI/CD practices for automated testing and deployment of backend services, ensuring agile delivery.}
+        \resumeItem{Developed 15+ scalable REST API endpoints using FastAPI and PostgreSQL, applying strong programming skills and Cloud Technology principles for ConneX AI, enabling real-time workflow automation and backend integration.}
+        \resumeItem{Built an event-driven automation engine using Celery and Redis for asynchronous trigger-action execution, demonstrating robust solution design for scalable Data Engineering workflows.}
+        \resumeItem{Implemented DAG-based workflow orchestration with conditional execution logic to support extensible multi-node automation pipelines, crucial for efficient Data Engineering.}
+        \resumeItem{Applied agile development practices throughout the backend development lifecycle, integrating CI/CD principles for continuous delivery and deployment.}
       \resumeItemListEnd
   \resumeSubHeadingListEnd
 
@@ -143,40 +159,37 @@
           {\textbf{DealDrop} $|$ \href{https://dealdroppro.vercel.app}{\textcolor{blue}{Live}} $|$ \emph{React.js, Node.js, Express.js, Supabase (PostgreSQL), Google OAuth 2.0}}{}
           \vspace{-8pt}
           \resumeItemListStart
-            \resumeItem{Built a full-stack web application supporting 500+ tracked products with automated price monitoring and email notifications, leveraging cloud technology for scalable data management.}
-            \resumeItem{Integrated Google OAuth and Firecrawl API for secure authentication and automated product data extraction, contributing to efficient data engineering practices.}
-            \resumeItem{Developed CRON-based workflows for periodic data scraping, price validation, and real-time price-drop alerts, utilizing SQL for data persistence.}
-            \resumeItem{Applied strong logical reasoning to design robust data models within PostgreSQL, optimizing for query performance and data integrity.}
+            \resumeItem{Built a full-stack web application supporting 500+ tracked products with automated price monitoring and email notifications, leveraging SQL for data persistence.}
+            \resumeItem{Integrated Google OAuth and Firecrawl API for secure authentication and automated product data extraction, demonstrating strong programming skills.}
+            \resumeItem{Developed CRON-based workflows for periodic scraping, price validation, and real-time price-drop alerts, a core Data Engineering task.}
+            \resumeItem{Employed solution design principles to ensure a scalable and maintainable architecture for automated data processing workflows.}
           \resumeItemListEnd
           \vspace{-10pt}
       \resumeProjectHeading
           {\textbf{PreVuCam} $|$ \href{https://prevucam.streamlit.app/}{\textcolor{blue}{Live}} $|$ \emph{Python, OpenCV, Streamlit, FFmpeg, MoviePy}}{}
           \vspace{-6pt}
           \resumeItemListStart
-            \resumeItem{Developed PreVuCam, a Streamlit-based AI extension using Python that enables AI/ML inferences on traditional cameras.}
-            \resumeItem{Implemented automated 7-second pre-event and post-event buffering, reducing storage usage by 62\% and optimizing data processing for AI/ML applications.}
-            \resumeItem{Built a complete data processing pipeline using Python to extract, trim, and compile motion events into a single downloadable MP4 file, with integrated logging for monitoring and debugging.}
-            \resumeItem{Applied analytical skills to optimize video processing algorithms, enhancing efficiency and real-time performance of AI inferences.}
+            \resumeItem{Developed PreVuCam, a Streamlit-based AI extension that enables AI inferences on traditional cameras, utilizing Python for core logic.}
+            \resumeItem{Implemented automated 7-second pre-event and post-event buffering, applying ML/DL techniques to optimize video processing and reduce storage usage.}
+            \resumeItem{Built a complete processing pipeline to extract, trim, and compile motion events into a single downloadable MP4 file, demonstrating robust Data Engineering and solution design.}
           \resumeItemListEnd
 
-\vspace{-15pt}
+
 
 %-----------PROGRAMMING SKILLS-----------
 \section{Technical Skills}
  \begin{itemize}[leftmargin=0.15in, label={}]
     \small{\item{
-     \textbf{Languages}{: Java, Python, C/C++, SQL} \\[4pt]
-     \textbf{Databases}{: PostgreSQL, MySQL, Redis, Supabase} \\[4pt]
-     \textbf{Cloud \& DevOps}{: AWS, Docker, CI/CD} \\[4pt]
-     \textbf{Developer Tools}{: GitHub, Git, Alembic} \\[4pt]
-     \textbf{Frameworks}{: React.js, FastAPI, OAuth 2.0, Node.js, Express.js, HTML, CSS} \\[4pt]
-     \textbf{AI/ML/DL \& Generative AI}{: PyTorch, Gemini API, LangChain, OpenCV, TensorFlow, Claude, GitHub Copilot}\\[4pt]
-     \textbf{Data \& Analytics Tools}{: Excel} \\[4pt]
-     \textbf{Methodologies}{: Agile} \\[4pt]
+     \textbf{Languages}{: Java, Python, C/C++} \\[4pt]
+     \textbf{Databases}{: PostgreSQL, MySQL, Redis, Supabase, SQL} \\[4pt]
+     \textbf{Developer Tools}{: GitHub, Git, Docker, Alembic, CI/CD} \\[4pt]
+     \textbf{Technologies/Frameworks}{: React.js, FastAPI, OAuth 2.0, Node.js, Express.js HTML, CSS} \\[4pt]
+     \textbf{Generative AI and LLMs}{: PyTorch, Gemini API, LangChain, OpenCV, TensorFlow, AI, ML, DL, Claude, GitHub Copilot, Coding Assistants}\\[4pt]
      \textbf{Fundamentals}{: Data Structures and Algorithms, Operating Systems, DBMS, OOP} \\
+     \textbf{Development Methodologies}{: Agile} \\
     }}
  \end{itemize}
- \vspace{-16pt}
+ 
 
 %-----------INVOLVEMENT---------------
 \section{Achievements / Extracurricular}
@@ -186,7 +199,9 @@
                 \resumeItem{Secured District Rank 4 and 5 in the International English Olympiad (IEO) for two consecutive years.}
                 \resumeItem{Shortlisted for the Samsung Fellowship (ISWDP Cohort 7.0) from 4700+ applicants.}
                 \resumeItem{Selected Participant at the Harvard Health Systems Innovation Lab (India Hub).}
-                \resumeItem{Solved 200+ Data Structures and Algorithms problems across LeetCode, CodeChef, and similar platforms, demonstrating strong logical reasoning and analytical skills.}
+                \resumeItem{Solved 200+ Data Structures and Algorithms problems across LeetCode, CodeChef, and similar platforms.}
             \resumeItemListEnd
 
+
+\resumeSubHeadingListEnd
 \end{document}

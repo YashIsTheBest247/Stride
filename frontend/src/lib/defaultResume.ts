@@ -77,9 +77,9 @@ export const RESUME_ON_CAMPUS_LATEX = String.raw`%-------------------------
 \newcommand{\resumeSubheading}[4]{
   \vspace{-2pt}\item
     \begin{tabular*}{1.0\textwidth}[t]{l@{\extracolsep{\fill}}r}
-      \textbf{#1} & \textbf{\small #2} \\
+      \textbf{#1} & \textbf{\small #2} \\[3pt]
       \textit{\small#3} & \textit{\small #4} \\
-    \end{tabular*}\vspace{-7pt}
+    \end{tabular*}\vspace{-3pt}
 }
 
 \newcommand{\resumeSubSubheading}[2]{
@@ -176,8 +176,9 @@ export const RESUME_ON_CAMPUS_LATEX = String.raw`%-------------------------
             \resumeItem{Implemented automated  7-second pre-event and post-event buffering, reducing storage usage upto 62\%, power consumption, and manual surveillance review time.}
             \resumeItem{Built a complete processing pipeline to extract, trim, and compile motion events into a single downloadable MP4 file with integrated logging for monitoring and debugging.}
           \resumeItemListEnd
+    \resumeSubHeadingListEnd
 
-\vspace{-15pt}
+\vspace{-5pt}
 
 %-----------PROGRAMMING SKILLS-----------
 \section{Technical Skills}
@@ -275,9 +276,9 @@ export const RESUME_OFF_CAMPUS_LATEX = String.raw`%-------------------------
 \newcommand{\resumeSubheading}[4]{
   \vspace{-2pt}\item
     \begin{tabular*}{1.0\textwidth}[t]{l@{\extracolsep{\fill}}r}
-      \textbf{#1} & \textbf{\small #2} \\
+      \textbf{#1} & \textbf{\small #2} \\[3pt]
       \textit{\small#3} & \textit{\small #4} \\
-    \end{tabular*}\vspace{-7pt}
+    \end{tabular*}\vspace{-3pt}
 }
 
 \newcommand{\resumeSubSubheading}[2]{
@@ -374,7 +375,7 @@ export const RESUME_OFF_CAMPUS_LATEX = String.raw`%-------------------------
           \resumeItemListEnd
 
     \resumeSubHeadingListEnd
-\vspace{-15pt}
+\vspace{-5pt}
 
 %-----------PROGRAMMING SKILLS-----------
 \section{Technical Skills}

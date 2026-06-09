@@ -403,6 +403,87 @@ def fix_redundant_subheading_wrapper(latex: str) -> str:
     )
 
 
+# A negative \vspace parked right before a \section pulls the heading UP into
+# the previous section's last line — at small font / after shrink it overshoots
+# a whole line height and the text literally overlaps. These templates only do
+# it before Technical Skills / Achievements (\vspace{-15pt}/{-16pt}); every
+# other section relies on the natural \titleformat spacing and looks right. Drop
+# the negative vspace so ALL section gaps are uniform. (Optional single comment
+# line between the vspace and the \section is preserved.)
+_PRE_SECTION_VSPACE = re.compile(
+    r"\\vspace\{-[\d.]+pt\}([ \t]*\n\s*(?:%[^\n]*\n\s*)?\\section\b)"
+)
+
+
+def relax_pre_section_vspace(latex: str) -> str:
+    r"""Remove a negative ``\vspace`` immediately preceding a ``\section``."""
+    return _PRE_SECTION_VSPACE.sub(r"\1", latex)
+
+
+def strip_markdown_emphasis(latex: str) -> str:
+    r"""Strip Markdown ``**bold**`` the LLM sometimes wraps keywords in.
+
+    The output is LaTeX, not Markdown — ``**`` renders as literal asterisks, so
+    "\\resumeItem{Built **FastAPI** APIs}" prints "**FastAPI**". We unwrap paired
+    ``**…**`` to the inner text and drop any stray ``**``. Scoped to the body
+    (after ``\begin{document}``) so it never disturbs preamble command names
+    that contain a single ``*`` (e.g. ``tabular*``). Single ``*`` is left alone
+    for the same reason.
+    """
+    marker = "\\begin{document}"
+    idx = latex.find(marker)
+    head, body = (latex[:idx], latex[idx:]) if idx != -1 else ("", latex)
+    body = re.sub(r"\*\*(.+?)\*\*", r"\1", body)  # **bold** -> bold (per line)
+    body = body.replace("**", "")  # drop any unpaired leftovers
+    return head + body
+
+
+def escape_stray_ampersands(latex: str) -> str:
+    r"""Escape literal ``&`` in the document body (``&`` → ``\&``).
+
+    LaTeX reads a bare ``&`` as a table column separator, so an LLM-added skill
+    category like ``\textbf{Analytics & BI}`` triggers "Misplaced alignment tab
+    character &" and zero pages. We only touch text AFTER ``\begin{document}`` —
+    the preamble's ``\begin{tabular*}`` macro definitions use ``&`` as a real
+    separator and must stay intact — and we skip already-escaped ``\&``.
+    """
+    marker = "\\begin{document}"
+    idx = latex.find(marker)
+    if idx == -1:
+        return latex  # no body boundary; don't risk the preamble's tabular defs
+    head, body = latex[:idx], latex[idx:]
+    body = re.sub(r"(?<!\\)&", r"\\&", body)
+    return head + body
+
+
+_LIST_TOKEN_RE = re.compile(r"\\resume(SubHeading|Item)List(Start|End)\b")
+
+
+def balance_resume_lists(latex: str) -> str:
+    r"""Auto-close unbalanced ``\resume*ListStart`` macros before compile.
+
+    Both ``\resumeSubHeadingListStart`` and ``\resumeItemListStart`` expand to
+    ``\begin{itemize}``; if a template (or the LLM) drops a matching ``…End``,
+    the open list runs to ``\end{document}`` and Tectonic aborts with
+    "\\begin{itemize} ... ended by \\end{document}". We walk the Start/End
+    tokens as a LIFO stack and append the matching closers (innermost first)
+    right before ``\end{document}``. Extra/stray ``…End`` tokens are ignored.
+    """
+    stack: list[str] = []
+    for m in _LIST_TOKEN_RE.finditer(latex):
+        kind, side = m.group(1), m.group(2)
+        if side == "Start":
+            stack.append(kind)
+        elif stack:
+            stack.pop()
+    if not stack:
+        return latex
+    closers = "".join(f"\n\\resume{kind}ListEnd" for kind in reversed(stack))
+    if "\\end{document}" in latex:
+        return latex.replace("\\end{document}", f"{closers}\n\\end{{document}}", 1)
+    return latex + closers
+
+
 # Match 10/11/12pt so we can also step a doc down to 9pt at the top level.
 _DOCCLASS_FONTSIZE = re.compile(
     r"(\\documentclass\[[^\]]*?)\b(10|11|12)pt\b"
@@ -508,12 +589,21 @@ def sanitize_for_tectonic(
     latex = strip_pdftex_only_directives(latex)
     latex = fix_command_environment_confusion(latex)
     if finalize:
+        latex = strip_markdown_emphasis(latex)
         latex = strip_added_bolds(latex)
         latex = rescue_bulletless_achievements(latex)
         latex = ensure_bullet_wrappers(latex)
         # Must run AFTER ensure_bullet_wrappers, which can itself create the
         # broken `\resumeSubHeadingListStart`→`\resumeItemListStart` nesting.
         latex = fix_redundant_subheading_wrapper(latex)
+        # Close any \resume*ListStart the template/LLM left open, so an unclosed
+        # itemize can't run into \end{document} and abort the compile.
+        latex = balance_resume_lists(latex)
+        # Escape literal & the LLM left unescaped in skill categories etc.
+        latex = escape_stray_ampersands(latex)
+        # Drop negative \vspace right before a \section so headings can't
+        # overlap the previous section's last line (uniform section gaps).
+        latex = relax_pre_section_vspace(latex)
         # Pin textheight to the page so a too-long resume overflows DETECTABLY
         # (2nd page / Overfull) instead of clipping its last lines silently.
         latex = cap_text_height(latex)

@@ -114,7 +114,7 @@ RULES IN PRIORITY ORDER:
 
 5. PRESERVE FORMATTING. Do not change document class, packages, geometry, fonts, margins, colors, section ordering, command definitions, spacing macros, or any \\newcommand / \\renewcommand. Layout must be visually identical.
 
-6. ZERO NEW EMPHASIS. Do not add \\textbf{}, \\emph{}, \\textit{}, \\underline{}, or \\color{} that wasn't already in the original. Only structural bolds (job titles, project names, skill category labels) that existed in the input stay. NEVER wrap injected keywords in bold.
+6. ZERO NEW EMPHASIS. Do not add \\textbf{}, \\emph{}, \\textit{}, \\underline{}, or \\color{} that wasn't already in the original. Only structural bolds (job titles, project names, skill category labels) that existed in the input stay. NEVER wrap injected keywords in bold. The output is LaTeX, NOT Markdown — NEVER use Markdown syntax like **bold** or *italic*; asterisks are not formatting in LaTeX and render literally as `*` in the PDF.
 
    ✗ BAD:  \\resumeItem{Developed \\textbf{Python back-end} REST API endpoints with \\textbf{FastAPI}}
    ✓ GOOD: \\resumeItem{Developed Python back-end REST API endpoints with FastAPI}
