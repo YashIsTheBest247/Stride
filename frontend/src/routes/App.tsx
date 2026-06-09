@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowUpRight, BookmarkPlus, CheckCircle2, Download, Loader2, Sparkles, Star, XCircle } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, CheckCircle2, Download, Loader2, Sparkles, XCircle } from "lucide-react";
 import Marquee from "../components/Marquee";
+import DefaultButtons from "../components/DefaultButtons";
 import { tailorResume, type TailorResponse } from "../lib/api";
-import { hasDefaultLatex, loadDefaultLatex, saveDefaultLatex } from "../lib/defaultResume";
 
 type Status = "idle" | "loading" | "done" | "error";
 
@@ -36,12 +36,6 @@ export default function AppPage() {
     }
   }, []);
 
-  // Default-resume slot — persisted in localStorage.
-  const [hasDefault, setHasDefault] = useState(false);
-  useEffect(() => {
-    setHasDefault(hasDefaultLatex());
-  }, []);
-
   // When the PDF is ready, scroll the result panel (with the Download button)
   // into view so the user doesn't have to hunt for it after a 15–30s wait.
   useEffect(() => {
@@ -52,17 +46,6 @@ export default function AppPage() {
     });
     return () => window.cancelAnimationFrame(id);
   }, [status, result]);
-
-  function loadDefault() {
-    const t = loadDefaultLatex();
-    if (t) setLatex(t);
-  }
-
-  function saveDefault() {
-    if (!latex.trim()) return;
-    saveDefaultLatex(latex);
-    setHasDefault(true);
-  }
 
   const canSubmit = latex.trim().length > 100 && jd.trim().length > 50 && status !== "loading";
 
@@ -134,29 +117,8 @@ export default function AppPage() {
                   <span className="display text-sm text-sap-100">01</span>
                   <h2 className="display text-xl text-sap-50">LaTeX source</h2>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={loadDefault}
-                    disabled={!hasDefault}
-                    title={hasDefault
-                      ? "Load your saved default .tex"
-                      : "Save a default first using the bookmark button →"}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-black/15 bg-black/[0.03] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-sap-200 transition hover:border-black/40 hover:text-sap-50 active:scale-[0.97] disabled:opacity-40 disabled:hover:border-black/15"
-                  >
-                    <Star size={11} />
-                    Default
-                  </button>
-                  <button
-                    type="button"
-                    onClick={saveDefault}
-                    disabled={!latex.trim()}
-                    title="Save the current .tex as your default for future visits"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-black/15 bg-black/[0.03] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-sap-200 transition hover:border-black/40 hover:text-sap-50 active:scale-[0.97] disabled:opacity-40 disabled:hover:border-black/15"
-                  >
-                    <BookmarkPlus size={11} />
-                    Save
-                  </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <DefaultButtons value={latex} onLoad={setLatex} />
                   <span className="eyebrow text-sap-100/40">{latex.length.toLocaleString()} chars</span>
                 </div>
               </div>

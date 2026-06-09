@@ -32,11 +32,12 @@ Catalyst2.0/
 | `/app` | Tailor flow: paste `.tex` + JD → PDF download |
 | `/search` | Search live boards + deep-link buttons to LinkedIn/Indeed/Glassdoor/Wellfound/Naukri |
 
-Default-resume slot — the **DEFAULT** button on both pages drops a resume into
-the textarea instantly. A built-in sample ships in the bundle (so it works on a
-fresh browser / the deployed app with nothing saved); paste your own `.tex` and
-click **★ SAVE** to override it (stored in your browser under
-`localStorage["stride:default-latex"]`, never sent to the backend).
+Default-resume presets — both pages offer three built-in starting points
+(**Off-Campus**, **On-Campus**, **Priority** / high-priority off-campus). Click
+one to load it into the editor; edit it and hit **★ SAVE** to persist your own
+version of *that* preset (stored per-preset in the browser under
+`localStorage["stride:default:<id>"]`, never sent to the backend). A • marks a
+preset you've customized.
 
 ---
 

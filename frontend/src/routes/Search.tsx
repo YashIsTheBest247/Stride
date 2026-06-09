@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Banknote,
-  BookmarkPlus,
   Briefcase,
   Check,
   ChevronDown,
@@ -12,11 +11,10 @@ import {
   MapPin,
   Search as SearchIcon,
   Sparkles,
-  Star,
   X,
 } from "lucide-react";
 import { searchJobs, type JobResult } from "../lib/jobs";
-import { hasDefaultLatex, loadDefaultLatex, saveDefaultLatex } from "../lib/defaultResume";
+import DefaultButtons from "../components/DefaultButtons";
 
 type Status = "idle" | "loading" | "done" | "error";
 
@@ -42,22 +40,6 @@ export default function SearchPage() {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
 
-  // Default-resume slot — same localStorage value as the /app page.
-  const [hasDefault, setHasDefault] = useState(false);
-  useEffect(() => {
-    setHasDefault(hasDefaultLatex());
-  }, []);
-
-  function loadDefault() {
-    const t = loadDefaultLatex();
-    if (t) setResume(t);
-  }
-
-  function saveDefault() {
-    if (!resume.trim()) return;
-    saveDefaultLatex(resume);
-    setHasDefault(true);
-  }
 
   async function runSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -180,29 +162,8 @@ export default function SearchPage() {
               <div>
                 <div className="flex items-center justify-between">
                   <label className="eyebrow text-sap-400">Your resume (LaTeX) — optional</label>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={loadDefault}
-                      disabled={!hasDefault}
-                      title={hasDefault
-                        ? "Load your saved default .tex"
-                        : "No default saved yet — paste + click Save"}
-                      className="inline-flex items-center gap-1 rounded-full border border-black/15 bg-black/[0.03] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-sap-200 transition hover:border-black/40 hover:text-sap-50 active:scale-[0.97] disabled:opacity-40 disabled:hover:border-black/15"
-                    >
-                      <Star size={10} />
-                      Default
-                    </button>
-                    <button
-                      type="button"
-                      onClick={saveDefault}
-                      disabled={!resume.trim()}
-                      title="Save the current .tex as your default for future visits"
-                      className="inline-flex items-center gap-1 rounded-full border border-black/15 bg-black/[0.03] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-sap-200 transition hover:border-black/40 hover:text-sap-50 active:scale-[0.97] disabled:opacity-40 disabled:hover:border-black/15"
-                    >
-                      <BookmarkPlus size={10} />
-                      Save
-                    </button>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <DefaultButtons value={resume} onLoad={setResume} compact />
                   </div>
                 </div>
                 <textarea
