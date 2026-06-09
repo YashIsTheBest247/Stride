@@ -1,4 +1,6 @@
+import base64
 import io
+import json
 import logging
 
 from fastapi import APIRouter, HTTPException
@@ -6,7 +8,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from ..services.latex import CompileResult, LatexCompileError, compile_latex_to_pdf
-from ..services.llm import fix_latex_compile_error, tailor_resume
+from ..services.llm import distill_job_description, fix_latex_compile_error, tailor_resume
 from ..services.preprocess import (
     MAX_SHRINK_LEVEL,
     count_achievement_items,
@@ -237,3 +239,120 @@ def tailor(payload: TailorRequest):
         "Access-Control-Expose-Headers": "Content-Disposition, X-Resume-Filename, X-Resume-Company, X-Resume-Role",
     }
     return StreamingResponse(io.BytesIO(pdf_bytes), media_type="application/pdf", headers=headers)
+
+
+# ── Streaming variant: live per-step progress over Server-Sent Events ────────
+# Same pipeline as /tailor, but yields a `data: {...}\n\n` event before/after
+# each phase so the UI can show real progress (sanitize → tailor → compile →
+# shrink → done). The final event carries the PDF as base64. The route is a
+# sync def and the generator is sync, so Starlette iterates it in a threadpool
+# — the blocking Gemini/Tectonic calls never stall the event loop (keeps
+# /api/health responsive, which is what stops Render killing the worker).
+_SHRINK_FONT = {1: "10pt", 2: "10pt (tighter)", 3: "9pt", 4: "8pt"}
+
+
+def _sse(obj: dict) -> str:
+    return f"data: {json.dumps(obj)}\n\n"
+
+
+def _fits(c: CompileResult) -> bool:
+    return c.pages == 1 and c.overfull_pt <= _OVERFLOW_PT_THRESHOLD
+
+
+def _stream_tailor(payload: TailorRequest):
+    try:
+        yield _sse({"step": "sanitize", "label": "Sanitizing your LaTeX"})
+        sanitized_input = sanitize_for_tectonic(payload.latex_source)
+
+        yield _sse({"step": "tailor", "label": "Tailoring with Gemini — weaving in the job's keywords"})
+        result = tailor_resume(sanitized_input, payload.job_description)
+
+        in_b = sanitized_input.count("\\resumeItem{") + sanitized_input.count("\\item ")
+        out_b = result.latex.count("\\resumeItem{") + result.latex.count("\\item ")
+        in_ach = count_achievement_items(sanitized_input)
+        out_ach = count_achievement_items(result.latex)
+        delta = out_b - in_b
+        bump = f"+{delta}" if delta > 0 else str(delta)
+        yield _sse({
+            "step": "tailor_done",
+            "label": f"Keywords injected — {out_b} bullets ({bump}), {out_ach}/{in_ach} achievements kept",
+        })
+
+        finalized = sanitize_for_tectonic(result.latex, finalize=True)
+
+        yield _sse({"step": "compile", "label": "Compiling with Tectonic"})
+        try:
+            compiled = compile_latex_to_pdf(finalized)
+        except LatexCompileError as exc:
+            yield _sse({"step": "repair", "label": "Hit a LaTeX error — repairing with AI and recompiling"})
+            finalized = fix_latex_compile_error(finalized, f"{exc}\n\n{exc.log_tail or ''}")
+            compiled = compile_latex_to_pdf(finalized)
+
+        if _fits(compiled):
+            yield _sse({"step": "fit", "label": "Fits on one page — no shrink needed"})
+        else:
+            unknown = compiled.pages == 0 and compiled.overfull_pt == 0
+            max_level = 1 if unknown else MAX_SHRINK_LEVEL
+            level = 1
+            while level <= max_level:
+                pages_txt = f"{compiled.pages} pages" if compiled.pages and compiled.pages > 1 else "content overflowing"
+                yield _sse({
+                    "step": "shrink",
+                    "label": f"Doesn't fit ({pages_txt}) — shrinking to {_SHRINK_FONT.get(level, 'smaller')} ({level}/{max_level})",
+                })
+                compiled = compile_latex_to_pdf(shrink_to_fit(finalized, level=level))
+                if _fits(compiled):
+                    break
+                level += 1
+            yield _sse({"step": "fit", "label": "Squeezed onto one page" if _fits(compiled) else "Fit as tight as possible"})
+
+        filename = f"{result.full_name}_{result.role}.pdf"
+        yield _sse({
+            "step": "done",
+            "label": "Ready",
+            "filename": filename,
+            "company": result.company,
+            "role": result.role,
+            "pdf": base64.b64encode(compiled.pdf).decode("ascii"),
+        })
+    except (LatexCompileError, ValueError, RuntimeError) as exc:
+        logger.error("[STRIDE /tailor/stream] %s", exc)
+        yield _sse({"step": "error", "message": str(exc)})
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("[STRIDE /tailor/stream] unexpected error")
+        yield _sse({"step": "error", "message": f"Unexpected error: {exc}"})
+
+
+@router.post("/tailor/stream")
+def tailor_stream(payload: TailorRequest):
+    if not payload.latex_source.strip():
+        raise HTTPException(status_code=400, detail="LaTeX source is empty.")
+    if not payload.job_description.strip():
+        raise HTTPException(status_code=400, detail="Job description is required.")
+    return StreamingResponse(
+        _stream_tailor(payload),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+# ── Job-description PDF distillation ─────────────────────────────────────────
+class DistillRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=MAX_JD_CHARS * 3)
+
+
+@router.post("/distill-jd")
+def distill_jd(payload: DistillRequest):
+    """Reduce raw extracted PDF text to just the role, responsibilities,
+    requirements, and required skills — dropping company boilerplate, benefits,
+    legal, and application/navigation noise."""
+    text = payload.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="No text to distill.")
+    try:
+        cleaned = distill_job_description(text)
+    except (ValueError, RuntimeError) as exc:
+        # On any LLM hiccup, fall back to the raw text so the user still gets the JD.
+        logger.warning("[STRIDE /distill-jd] falling back to raw text: %s", exc)
+        cleaned = text
+    return {"job_description": cleaned}

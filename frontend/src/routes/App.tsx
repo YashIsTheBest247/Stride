@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowUpRight, CheckCircle2, Download, Loader2, Sparkles, Upload, XCircle } from "lucide-react";
 import DefaultButtons from "../components/DefaultButtons";
-import { tailorResume, type TailorResponse } from "../lib/api";
+import TailorProgress from "../components/TailorProgress";
+import { distillJobDescription, tailorResumeStream, type TailorResponse, type TailorStep } from "../lib/api";
 import { extractPdfText } from "../lib/pdf";
 
 type Status = "idle" | "loading" | "done" | "error";
@@ -12,11 +13,14 @@ export default function AppPage() {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string>("");
   const [result, setResult] = useState<TailorResponse | null>(null);
+  const [steps, setSteps] = useState<TailorStep[]>([]);
   const resultRef = useRef<HTMLDivElement | null>(null);
+  const progressRef = useRef<HTMLDivElement | null>(null);
 
   // Job-description PDF upload — extract text in-browser and fill the JD box.
   const jdFileRef = useRef<HTMLInputElement | null>(null);
   const [jdExtracting, setJdExtracting] = useState(false);
+  const [jdPhase, setJdPhase] = useState("");
   const [jdFileError, setJdFileError] = useState("");
 
   async function handleJdPdf(e: React.ChangeEvent<HTMLInputElement>) {
@@ -29,14 +33,28 @@ export default function AppPage() {
     }
     setJdFileError("");
     setJdExtracting(true);
+    setJdPhase("Reading PDF");
     try {
       const text = await extractPdfText(file);
-      if (text.trim()) setJd(text);
-      else setJdFileError("No selectable text found — is this a scanned/image PDF?");
+      if (!text.trim()) {
+        setJdFileError("No selectable text found — is this a scanned/image PDF?");
+        return;
+      }
+      // Distill to just role + responsibilities + requirements + skills,
+      // dropping company boilerplate / benefits / legal. Falls back to the raw
+      // text if the distiller is unavailable.
+      setJdPhase("Extracting role & requirements");
+      try {
+        const distilled = await distillJobDescription(text);
+        setJd(distilled.trim() ? distilled : text);
+      } catch {
+        setJd(text);
+      }
     } catch {
       setJdFileError("Couldn't read that PDF. Try pasting the text instead.");
     } finally {
       setJdExtracting(false);
+      setJdPhase("");
     }
   }
 
@@ -73,14 +91,26 @@ export default function AppPage() {
     return () => window.cancelAnimationFrame(id);
   }, [status, result]);
 
+  // Bring the live progress stepper into view as soon as tailoring starts.
+  useEffect(() => {
+    if (status !== "loading" || !progressRef.current) return;
+    const id = window.requestAnimationFrame(() => {
+      progressRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [status]);
+
   const canSubmit = latex.trim().length > 100 && jd.trim().length > 50 && status !== "loading";
 
   async function handleSubmit() {
     setStatus("loading");
     setError("");
     setResult(null);
+    setSteps([]);
     try {
-      const res = await tailorResume(latex, jd);
+      const res = await tailorResumeStream(latex, jd, (s) =>
+        setSteps((prev) => [...prev, s]),
+      );
       setResult(res);
       setStatus("done");
     } catch (err) {
@@ -169,7 +199,7 @@ export default function AppPage() {
                     className="inline-flex items-center gap-1.5 rounded-full border border-black/15 bg-black/[0.03] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-sap-200 transition hover:border-black/40 hover:text-sap-50 active:scale-[0.97] disabled:opacity-40 disabled:hover:border-black/15"
                   >
                     {jdExtracting ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />}
-                    {jdExtracting ? "Reading" : "Upload PDF"}
+                    {jdExtracting ? jdPhase || "Reading" : "Upload PDF"}
                   </button>
                   <span className="eyebrow text-sap-100/40">{jd.length.toLocaleString()} chars</span>
                 </div>
@@ -214,6 +244,13 @@ export default function AppPage() {
               )}
             </button>
           </div>
+
+          {/* PROGRESS */}
+          {status === "loading" && (
+            <div ref={progressRef} className="mt-8 scroll-mt-24">
+              <TailorProgress events={steps} />
+            </div>
+          )}
 
           {/* RESULTS */}
           {status === "done" && result && (

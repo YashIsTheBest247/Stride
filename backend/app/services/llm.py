@@ -294,6 +294,50 @@ def tailor_resume(latex_source: str, job_description: str) -> TailorResult:
     return result
 
 
+_DISTILL_SYSTEM_PROMPT = """You clean up raw text extracted from a job-posting PDF.
+
+Return ONLY the parts a resume should be tailored against:
+  - the role / job title
+  - responsibilities / what you'll do
+  - requirements / qualifications
+  - required skills, tools, technologies, methodologies
+
+DROP everything else: company "About us" marketing, benefits/perks, salary,
+EEO / legal / diversity statements, application instructions ("how to apply"),
+page numbers, navigation / cookie / footer text, social links, and repeated
+headers or footers.
+
+Rules:
+- Output PLAIN TEXT only — no Markdown (no **bold**, no #), no preamble, no commentary.
+- Be faithful: never invent requirements. Preserve concrete tool / technology /
+  skill names verbatim.
+- Where the content supports it, group under short headings: Role,
+  Responsibilities, Requirements, Skills.
+- If the text barely contains a usable posting, return whatever role/requirement
+  content you can find rather than nothing."""
+
+
+def distill_job_description(raw_text: str) -> str:
+    """Distill raw extracted PDF text to role + responsibilities + requirements
+    + skills, dropping boilerplate. Returns clean plain text."""
+    response = _call_gemini(
+        model=get_settings().gemini_model,
+        contents=(
+            "RAW JOB POSTING TEXT (extracted from a PDF):\n"
+            "--------------------------------------------\n"
+            f"{raw_text.strip()}\n\n"
+            "Return the cleaned job description — role, responsibilities, "
+            "requirements, and required skills only."
+        ),
+        system_instruction=_DISTILL_SYSTEM_PROMPT,
+        temperature=0.0,
+    )
+    out = (response.text or "").strip()
+    if not out:
+        raise ValueError("Distill LLM returned an empty response.")
+    return out
+
+
 def fix_latex_compile_error(latex: str, tectonic_error: str) -> str:
     """Ask Gemini to repair a .tex that Tectonic failed to compile.
 
