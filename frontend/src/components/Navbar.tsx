@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
+import GatedLink from "./GatedLink";
 import Logo from "./Logo";
 
 const SECTIONS = [
@@ -108,7 +109,7 @@ export default function Navbar() {
           })}
 
           {/* Cross-route link — gets its own active pill when on /search */}
-          <Link
+          <GatedLink
             to="/search"
             className="relative px-4 py-1.5 text-xs font-bold uppercase tracking-[0.18em] transition-colors"
           >
@@ -118,14 +119,14 @@ export default function Navbar() {
             <span className={`relative z-10 transition-colors ${onSearch ? activeText : inactiveText}`}>
               Search
             </span>
-          </Link>
+          </GatedLink>
         </nav>
 
         <div className="ml-auto">
-          <Link to="/app" className="btn-cta">
+          <GatedLink to="/app" className="btn-cta">
             <span>Launch</span>
             <ArrowUpRight size={14} />
-          </Link>
+          </GatedLink>
         </div>
       </div>
     </header>

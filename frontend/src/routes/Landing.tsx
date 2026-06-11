@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Link } from "react-router-dom";
+import GatedLink from "../components/GatedLink";
 import { ArrowUpRight, ChevronDown, Github, Globe, Linkedin, Play } from "lucide-react";
 import TypewriterWord from "../components/TypewriterWord";
 import VideoBackdrop from "../components/VideoBackdrop";
@@ -139,10 +139,10 @@ export default function Landing() {
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Link to="/app" className="btn-cta">
+              <GatedLink to="/app" className="btn-cta">
                 <span>Start tailoring</span>
                 <ArrowUpRight size={14} />
-              </Link>
+              </GatedLink>
               <a href="#how" className="btn-ghost">
                 <Play size={12} />
                 <span>How it works</span>
@@ -214,10 +214,10 @@ export default function Landing() {
               <h2 className="display text-5xl text-sap-50 lg:text-6xl">
                 Ready in <span className="chrome">one stride.</span>
               </h2>
-              <Link to="/app" className="btn-cta">
+              <GatedLink to="/app" className="btn-cta">
                 <span>Tailor my resume</span>
                 <ArrowUpRight size={14} />
-              </Link>
+              </GatedLink>
             </div>
           </div>
         </div>
